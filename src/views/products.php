@@ -6,7 +6,7 @@
             <p class="text-sm text-gray-600 mb-1">Products are automatically synchronized from your feed URL.</p>
             <p class="text-xs text-gray-500">Current Feed URL: <?php echo htmlspecialchars($feedUrl ?? 'Not set'); ?></p>
         </div>
-        <form action="/admin/products/sync" method="POST">
+        <form action="<?php echo BASE_URL; ?>/admin/products/sync" method="POST">
             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded">
                 Sync Now
             </button>

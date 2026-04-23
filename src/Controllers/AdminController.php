@@ -24,11 +24,11 @@ class AdminController {
 
     public function showLogin(Request $request, Response $response): Response {
         if (isset($_SESSION['user'])) {
-            return $response->withHeader('Location', '/admin/settings')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/settings')->withStatus(302);
         }
         
         if (!AuthService::hasGlobalAdminSetup()) {
-            return $response->withHeader('Location', '/admin/init')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/init')->withStatus(302);
         }
         
         $db = Database::getConnection();
@@ -59,23 +59,23 @@ class AdminController {
         if ($success) {
             $_SESSION['user'] = $username;
             $_SESSION['is_wp_admin'] = $isWpLogin;
-            return $response->withHeader('Location', '/admin/settings')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/settings')->withStatus(302);
         }
 
         $_SESSION['error'] = 'Invalid credentials';
-        return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
     }
 
     public function showInit(Request $request, Response $response): Response {
         if (AuthService::hasGlobalAdminSetup()) {
-            return $response->withHeader('Location', '/admin/login')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         }
         return $this->render($response, 'init');
     }
 
     public function processInit(Request $request, Response $response): Response {
         if (AuthService::hasGlobalAdminSetup()) {
-            return $response->withHeader('Location', '/admin/login')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         }
 
         $data = $request->getParsedBody();
@@ -84,7 +84,7 @@ class AdminController {
 
         if (empty($username) || empty($password)) {
             $_SESSION['error'] = 'Username and password are required.';
-            return $response->withHeader('Location', '/admin/init')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/init')->withStatus(302);
         }
 
         $hashed = password_hash($password, PASSWORD_DEFAULT);
@@ -94,11 +94,11 @@ class AdminController {
         $stmt->execute([$username, $hashed]);
 
         $_SESSION['success'] = 'Global admin account created successfully. Please login.';
-        return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
     }
 
     public function logout(Request $request, Response $response): Response {
         session_destroy();
-        return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
     }
 }

@@ -1,7 +1,7 @@
 <div class="bg-white p-6 rounded shadow-sm border border-gray-200">
     <h2 class="text-2xl font-bold mb-6">System Settings</h2>
     
-    <form action="/admin/settings" method="POST">
+    <form action="<?php echo BASE_URL; ?>/admin/settings" method="POST">
         
         <!-- API Configuration -->
         <div class="mb-8">
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modelSelect.disabled = true;
         refreshBtn.disabled = true;
 
-        fetch(`/admin/api/models?provider=${provider}`)
+        fetch(`<?php echo BASE_URL; ?>/admin/api/models?provider=${provider}`)
             .then(response => response.json())
             .then(data => {
                 modelSelect.innerHTML = '';

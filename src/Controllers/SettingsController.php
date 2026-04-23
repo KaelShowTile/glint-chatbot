@@ -23,7 +23,7 @@ class SettingsController {
 
     public function show(Request $request, Response $response): Response {
         if (!isset($_SESSION['user'])) {
-            return $response->withHeader('Location', '/admin/login')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         }
 
         $db = Database::getConnection();
@@ -46,7 +46,7 @@ class SettingsController {
 
     public function update(Request $request, Response $response): Response {
         if (!isset($_SESSION['user'])) {
-            return $response->withHeader('Location', '/admin/login')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         }
 
         $data = $request->getParsedBody();
@@ -83,6 +83,6 @@ class SettingsController {
             $_SESSION['error'] = 'Failed to save settings: ' . $e->getMessage();
         }
 
-        return $response->withHeader('Location', '/admin/settings')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/settings')->withStatus(302);
     }
 }

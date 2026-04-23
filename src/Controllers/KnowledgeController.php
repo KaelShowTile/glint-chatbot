@@ -24,7 +24,7 @@ class KnowledgeController {
     }
 
     public function listText(Request $request, Response $response): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         
         $db = Database::getConnection();
         $stmt = $db->query("SELECT * FROM knowledge WHERE type = 'text' ORDER BY id DESC");
@@ -42,7 +42,7 @@ class KnowledgeController {
     }
 
     public function saveText(Request $request, Response $response): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
 
         $data = $request->getParsedBody();
         $content = trim($data['content'] ?? '');
@@ -50,7 +50,7 @@ class KnowledgeController {
 
         if (empty($content)) {
             $_SESSION['error'] = 'Content cannot be empty.';
-            return $response->withHeader('Location', '/admin/text')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/text')->withStatus(302);
         }
 
         try {
@@ -86,11 +86,11 @@ class KnowledgeController {
             $_SESSION['error'] = 'Error saving information: ' . $e->getMessage();
         }
 
-        return $response->withHeader('Location', '/admin/text')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/text')->withStatus(302);
     }
 
     public function deleteText(Request $request, Response $response, array $args): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
 
         $id = $args['id'] ?? null;
         if ($id) {
@@ -109,11 +109,11 @@ class KnowledgeController {
             }
         }
         
-        return $response->withHeader('Location', '/admin/text')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/text')->withStatus(302);
     }
 
     public function listQa(Request $request, Response $response): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         
         $db = Database::getConnection();
         $stmt = $db->query("SELECT * FROM knowledge WHERE type = 'qa' ORDER BY id DESC");
@@ -131,7 +131,7 @@ class KnowledgeController {
     }
 
     public function saveQa(Request $request, Response $response): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
 
         $data = $request->getParsedBody();
         $question = trim($data['content'] ?? '');
@@ -140,7 +140,7 @@ class KnowledgeController {
 
         if (empty($question) || empty($answer)) {
             $_SESSION['error'] = 'Question and Answer cannot be empty.';
-            return $response->withHeader('Location', '/admin/qa')->withStatus(302);
+            return $response->withHeader('Location', BASE_URL . '/admin/qa')->withStatus(302);
         }
 
         try {
@@ -176,11 +176,11 @@ class KnowledgeController {
             $_SESSION['error'] = 'Error saving Q&A: ' . $e->getMessage();
         }
 
-        return $response->withHeader('Location', '/admin/qa')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/qa')->withStatus(302);
     }
 
     public function deleteQa(Request $request, Response $response, array $args): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
 
         $id = $args['id'] ?? null;
         if ($id) {
@@ -199,11 +199,11 @@ class KnowledgeController {
             }
         }
         
-        return $response->withHeader('Location', '/admin/qa')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/qa')->withStatus(302);
     }
 
     public function listProducts(Request $request, Response $response): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         
         $db = Database::getConnection();
         $stmt = $db->query("SELECT * FROM products ORDER BY updated_at DESC");
@@ -225,7 +225,7 @@ class KnowledgeController {
     }
 
     public function triggerSync(Request $request, Response $response): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', '/admin/login')->withStatus(302);
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         
         $syncService = new \App\Services\SyncService();
         $success = $syncService::syncProducts();
@@ -236,6 +236,6 @@ class KnowledgeController {
             $_SESSION['error'] = 'Failed to synchronize products. Check the feed URL and format.';
         }
 
-        return $response->withHeader('Location', '/admin/products')->withStatus(302);
+        return $response->withHeader('Location', BASE_URL . '/admin/products')->withStatus(302);
     }
 }

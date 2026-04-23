@@ -1,7 +1,7 @@
 <div class="max-w-md mx-auto mt-20 bg-white p-8 border border-gray-300 rounded shadow-sm">
     <h1 class="text-2xl font-bold mb-6 text-center">System Initialization</h1>
     <p class="mb-4 text-gray-600 text-sm">Please set up your global administrator account to continue.</p>
-    <form action="/admin/init" method="POST">
+    <form action="<?php echo BASE_URL; ?>/admin/init" method="POST">
         <div class="mb-4">
             <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
                 Admin Username

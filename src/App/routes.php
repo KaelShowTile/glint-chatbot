@@ -6,14 +6,10 @@ use App\Database;
 
 return function (App $app) {
     $app->get('/', function (Request $request, Response $response) {
-        // Test database connection on load
-        try {
-            $db = Database::getConnection();
-            $response->getBody()->write("Welcome to AI Customer Service Backend. DB Connected.");
-        } catch (\Exception $e) {
-            $response->getBody()->write("Welcome to AI Customer Service Backend. DB Error: " . $e->getMessage());
+        if (!\App\Services\AuthService::hasGlobalAdminSetup()) {
+            return $response->withHeader('Location', BASE_URL . '/admin/init')->withStatus(302);
         }
-        return $response;
+        return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
     });
 
     $app->get('/admin/login', \App\Controllers\AdminController::class . ':showLogin');

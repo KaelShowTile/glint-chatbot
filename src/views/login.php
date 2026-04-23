@@ -1,6 +1,6 @@
 <div class="max-w-md mx-auto mt-20 bg-white p-8 border border-gray-300 rounded shadow-sm">
     <h1 class="text-2xl font-bold mb-6 text-center">Admin Login</h1>
-    <form action="/admin/login" method="POST">
+    <form action="<?php echo BASE_URL; ?>/admin/login" method="POST">
         <div class="mb-4">
             <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
                 Username
