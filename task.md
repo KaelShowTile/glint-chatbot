@@ -1,0 +1,32 @@
+# Task Breakdown: PHP RAG Customer Service System
+
+- `[/]` 1. Project Initialization & Environment Setup
+  - `[ ]` Create directory structure (`src`, `public`, `data`, `widget`).
+  - `[ ]` Initialize `composer.json` and install Slim Framework & Guzzle.
+  - `[ ]` Instruct user where to place PHPMailer files.
+  - `[ ]` Initialize Preact widget environment.
+- `[ ]` 2. Core Backend & Database Setup
+  - `[ ]` Setup SQLite database and schema initialization script.
+  - `[ ]` Implement Slim App bootstrap and routing.
+  - `[ ]` Implement basic Settings management (Read/Write to DB).
+- `[ ]` 3. Authentication & Admin UI Layout
+  - `[ ]` Implement WP Auth logic (parse `wp-config.php`, verify hash).
+  - `[ ]` Implement Global Admin auth logic.
+  - `[ ]` Create Base HTML/Tailwind layout for admin dashboard.
+  - `[ ]` Create Login and Settings pages.
+- `[x]` 4. RAG Services (LLM & Qdrant)
+  - `[x]` Implement `LlmService` (Gemini & Groq, Tool Calling).
+  - `[x]` Implement `VectorService` (Qdrant REST API calls).
+  - `[x]` Implement `EmailService` (PHPMailer wrapper).
+- `[x]` 5. Data Ingestion & Management
+  - `[x]` Implement Text & Q&A CRUD pages and backend sync logic.
+  - `[x]` Implement Product Feed Sync Service (Diff logic with SQLite & Qdrant).
+  - `[x]` Implement Pseudo-Cron middleware to trigger Product Sync.
+- `[x]` 6. Frontend Chat Widget (Preact)
+  - `[x]` Build chat UI components.
+  - `[x]` Implement state management and message streaming/polling.
+  - `[x]` Configure Vite to compile into a single `widget.js` file.
+- `[x]` 7. Final Polish & Testing
+  - `[x]` Test end-to-end chat workflow with escalation.
+  - `[x]` Test Product Sync diffing.
+  - `[x]` Verify settings updates apply correctly.

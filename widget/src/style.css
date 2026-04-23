@@ -1,0 +1,163 @@
+.glint-chatbot-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.glint-chatbot-toggle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.glint-chatbot-toggle:hover {
+  transform: scale(1.05);
+}
+
+.glint-chatbot-window {
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  width: 350px;
+  height: 500px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.glint-chatbot-header {
+  background: #2563eb;
+  color: white;
+  padding: 16px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.glint-chatbot-close {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.glint-chatbot-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #f9fafb;
+}
+
+.glint-message {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.glint-message.user {
+  align-self: flex-end;
+  background: #2563eb;
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.glint-message.bot {
+  align-self: flex-start;
+  background: white;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-bottom-left-radius: 4px;
+}
+
+.glint-message.system {
+  align-self: center;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 12px;
+  max-width: 90%;
+  text-align: center;
+}
+
+.glint-chatbot-input-area {
+  display: flex;
+  padding: 12px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+}
+
+.glint-chatbot-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  outline: none;
+  font-size: 14px;
+}
+
+.glint-chatbot-input:focus {
+  border-color: #2563eb;
+}
+
+.glint-chatbot-send {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  margin-left: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glint-chatbot-send:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.glint-typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.glint-typing-dot {
+  width: 6px;
+  height: 6px;
+  background: #9ca3af;
+  border-radius: 50%;
+  animation: glint-bounce 1.4s infinite ease-in-out both;
+}
+
+.glint-typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.glint-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes glint-bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
