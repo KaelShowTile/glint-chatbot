@@ -45,6 +45,7 @@ class KnowledgeController {
         if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
 
         $data = $request->getParsedBody();
+        $title = trim($data['title'] ?? '');
         $content = trim($data['content'] ?? '');
         $id = $data['id'] ?? null;
 
@@ -58,7 +59,8 @@ class KnowledgeController {
             $llm = new LlmService();
             $vectorService = new VectorService();
             
-            $vector = $llm->embed($content);
+            $fullContent = empty($title) ? $content : "Title: {$title}\n\n{$content}";
+            $vector = $llm->embed($fullContent);
             $qdrantId = VectorService::generateUuid();
 
             if ($id) {
@@ -67,18 +69,18 @@ class KnowledgeController {
                 $oldQdrantId = $stmt->fetchColumn();
                 if ($oldQdrantId) $qdrantId = $oldQdrantId;
                 
-                $stmt = $db->prepare("UPDATE knowledge SET content = ?, qdrant_id = ? WHERE id = ?");
-                $stmt->execute([$content, $qdrantId, $id]);
+                $stmt = $db->prepare("UPDATE knowledge SET title = ?, content = ?, qdrant_id = ? WHERE id = ?");
+                $stmt->execute([$title, $content, $qdrantId, $id]);
             } else {
-                $stmt = $db->prepare("INSERT INTO knowledge (type, content, qdrant_id) VALUES ('text', ?, ?)");
-                $stmt->execute([$content, $qdrantId]);
+                $stmt = $db->prepare("INSERT INTO knowledge (type, title, content, qdrant_id) VALUES ('text', ?, ?, ?)");
+                $stmt->execute([$title, $content, $qdrantId]);
                 $id = $db->lastInsertId();
             }
 
             $vectorService->upsert($qdrantId, $vector, [
                 'type' => 'text',
                 'internal_id' => $id,
-                'search_content' => $content
+                'search_content' => $fullContent
             ]);
 
             $_SESSION['success'] = 'Information saved successfully.';
@@ -234,6 +236,30 @@ class KnowledgeController {
             $_SESSION['success'] = 'Products synchronized successfully.';
         } else {
             $_SESSION['error'] = 'Failed to synchronize products. Check the feed URL and format.';
+        }
+
+        return $response->withHeader('Location', BASE_URL . '/admin/products')->withStatus(302);
+    }
+
+    public function deleteAllProducts(Request $request, Response $response): Response {
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
+        
+        try {
+            $db = Database::getConnection();
+            $vectorService = new VectorService();
+            
+            $stmt = $db->query("SELECT qdrant_id FROM products");
+            while ($row = $stmt->fetch()) {
+                if (!empty($row['qdrant_id'])) {
+                    $vectorService->delete($row['qdrant_id']);
+                }
+            }
+            
+            $db->exec("DELETE FROM products");
+            
+            $_SESSION['success'] = 'All products deleted successfully.';
+        } catch (\Exception $e) {
+            $_SESSION['error'] = 'Failed to delete products: ' . $e->getMessage();
         }
 
         return $response->withHeader('Location', BASE_URL . '/admin/products')->withStatus(302);

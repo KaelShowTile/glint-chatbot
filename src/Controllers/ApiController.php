@@ -14,6 +14,7 @@ class ApiController {
         }
 
         $provider = $request->getQueryParams()['provider'] ?? 'gemini';
+        $type = $request->getQueryParams()['type'] ?? 'generate';
         
         $db = Database::getConnection();
         $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('gemini_api_key', 'groq_api_key')");
@@ -45,8 +46,9 @@ class ApiController {
 
                 $res = $client->get("https://generativelanguage.googleapis.com/v1beta/models?key={$apiKey}");
                 $data = json_decode($res->getBody()->getContents(), true);
+                $targetMethod = $type === 'embed' ? 'embedContent' : 'generateContent';
                 foreach ($data['models'] ?? [] as $model) {
-                    if (in_array('generateContent', $model['supportedGenerationMethods'] ?? [])) {
+                    if (in_array($targetMethod, $model['supportedGenerationMethods'] ?? [])) {
                         $id = str_replace('models/', '', $model['name']);
                         $models[] = ['id' => $id, 'name' => ($model['displayName'] ?? $id) . ' (' . $id . ')'];
                     }

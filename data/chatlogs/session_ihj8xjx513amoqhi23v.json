@@ -1,0 +1,202 @@
+[
+    {
+        "type": "user",
+        "text": "Could you recommend a tile for bedroom?",
+        "timestamp": "2026-05-14 05:20:25"
+    },
+    {
+        "type": "bot",
+        "text": "I apologize, but based on the information I have, I cannot recommend a tile specifically for a bedroom. Would you like me to contact a human staff member to assist you further?",
+        "timestamp": "2026-05-14 05:20:25"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend a tile for kitchen?",
+        "timestamp": "2026-05-14 05:36:03"
+    },
+    {
+        "type": "bot",
+        "text": "Here are some tiles suitable for kitchens:\n\n*   **Techo Grey Grip Commercial Tile 200x200 (Code:03303)**\n    URL: http:\/\/localhost\/cht\/product\/techo-grey-grip-commercial-tile-200x200-code03303\/\n*   **White Gloss Subway Wall Tile 100x300 (Code:00588)**\n    URL: http:\/\/localhost\/cht\/product\/white-gloss-wall-tile-100x300-code00588\/",
+        "timestamp": "2026-05-14 05:36:03"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend a tile for bedroom?",
+        "timestamp": "2026-05-14 06:09:00"
+    },
+    {
+        "type": "bot",
+        "text": "I apologize, but based on the information I have, I cannot recommend a tile specifically for a bedroom. Would you like me to contact a human staff member to assist you further?",
+        "timestamp": "2026-05-14 06:09:00"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend a tile for kitchen?",
+        "timestamp": "2026-05-14 06:09:16"
+    },
+    {
+        "type": "bot",
+        "text": "Here are some tiles suitable for kitchens:\n\n*   **Techo Grey Grip Commercial Tile 200x200 (Code:03303)**\n    URL: http:\/\/localhost\/cht\/product\/techo-grey-grip-commercial-tile-200x200-code03303\/\n*   **White Gloss Subway Wall Tile 100x300 (Code:00588)**\n    URL: http:\/\/localhost\/cht\/product\/white-gloss-wall-tile-100x300-code00588\/",
+        "timestamp": "2026-05-14 06:09:16"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommed a tile for outdoor?",
+        "timestamp": "2026-05-18 02:06:37"
+    },
+    {
+        "type": "bot",
+        "text": "Here are some tiles suitable for outdoor use:\n\n*   **New Travertine Cross Cut Grigio External Cobblestone Tile 98x98 (Code:03133)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/new-travertine-cross-cut-grigio-cobble-brick-code03133\/\n*   **New Travertine Cross Cut Bianco External Cobblestone Tile 98x98 (Code:03134)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/new-travertine-cross-cut-bianco-cobble-brick-code03134\/",
+        "timestamp": "2026-05-18 02:06:37"
+    },
+    {
+        "type": "user",
+        "text": "Could you also recommend some white color tile?",
+        "timestamp": "2026-05-18 02:13:48"
+    },
+    {
+        "type": "bot",
+        "text": "Here are some white colored tiles:\n\n*   **White Gloss Wall Tile 300x600 (Code:00189)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/white-gloss-wall-tile-300x600-code00189\/\n*   **Loose Stone White Body (Code:03327)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/loose-stone-white-body-code03327\/\n*   **White Matt Subway Wall Tile 100x100 (Code:01671)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/white-matt-wall-tile-100x100-code-01671\/",
+        "timestamp": "2026-05-18 02:13:48"
+    },
+    {
+        "type": "user",
+        "text": "please recommend some black tiles.",
+        "timestamp": "2026-05-18 02:35:21"
+    },
+    {
+        "type": "bot",
+        "text": "Here are some black tiles:\n\n*   **Arch Black Matt Marble Look Tile 200x200 (Code:03257)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/arch-black-matt-marble-look-tile-200x200-code03257\/\n*   **Black Gloss Subway Wall Tile 75x300 (Code:01178)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/black-gloss-wall-tile-75x300-code01178\/\n*   **Black Gloss Subway Wall Tile 100x100 (Code:01179)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/black-gloss-subway-wall-tile-100x100-code01179\/",
+        "timestamp": "2026-05-18 02:35:21"
+    },
+    {
+        "type": "user",
+        "text": "please recommend some tiles for bathroom.",
+        "timestamp": "2026-05-18 02:45:56"
+    },
+    {
+        "type": "bot",
+        "text": "Here are some tiles suitable for bathrooms:\n\n*   **Attic White Polished Marble Look Tile 600\u00d71200 (Code:02730)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/attic-white-polished-marble-look-tile-600x1200-code02730\/\n*   **Attic White Matt Marble Look Tile 600\u00d71200 (Code:02731)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/attic-white-matt-tile-600x1200-code02731\/\n*   **Arch Black Matt Marble Look Tile 200x200 (Code:03257)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/arch-black-matt-marble-look-tile-200x200-code03257\/\n*   **Hera Greige Matt Concrete Look Tile 600x600 (Code:03253)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/hera-greige-matt-concrete-look-tile-600x600-code03253\/\n*   **Attic Dark Matt Marble Look Tile 600\u00d71200 (Code:02729)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/attic-dark-matt-tile-600x1200-code02729\/",
+        "timestamp": "2026-05-18 02:45:56"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend some other white colour tile?",
+        "timestamp": "2026-05-18 02:57:02"
+    },
+    {
+        "type": "bot",
+        "text": "Here are some other white colored tiles:\n\n*   **White Matt Wall Tile 300x600 (Code:00191)**\n    URL: https:\/\/www.cheapestiles.com.au\/product\/white-matt-wall-tile-300x600-code00191\/\n*   **Stone White Matt Marble Look Tile 300x300 (Code:03093)**\n    URL: http:\/\/localhost\/cht\/product\/stone-white-matt-marble-look-tile-300x300-code03093\/",
+        "timestamp": "2026-05-18 02:57:02"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend some grey colour tile?",
+        "timestamp": "2026-05-18 03:02:18"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 03:02:18"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend some grey colour tile?",
+        "timestamp": "2026-05-18 03:03:19"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 03:03:19"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend some light grey colour tile?",
+        "timestamp": "2026-05-18 03:42:17"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 03:42:17"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend some grey colour tile?",
+        "timestamp": "2026-05-18 04:09:34"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 04:09:34"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend some grey colour tile?",
+        "timestamp": "2026-05-18 04:11:36"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 04:11:36"
+    },
+    {
+        "type": "user",
+        "text": "please recommend some black tiles.",
+        "timestamp": "2026-05-18 04:13:58"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 04:13:58"
+    },
+    {
+        "type": "user",
+        "text": "Could you recommend some light grey colour tile?",
+        "timestamp": "2026-05-18 04:34:58"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 04:34:58"
+    },
+    {
+        "type": "user",
+        "text": "please recommend some black tiles.",
+        "timestamp": "2026-05-18 04:37:59"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 04:37:59"
+    },
+    {
+        "type": "user",
+        "text": "please recommend some white tiles.",
+        "timestamp": "2026-05-18 05:01:12"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 05:01:12"
+    },
+    {
+        "type": "user",
+        "text": "please recommend some black tiles.",
+        "timestamp": "2026-05-18 05:05:40"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 05:05:40"
+    },
+    {
+        "type": "user",
+        "text": "please recommend some black tiles.",
+        "timestamp": "2026-05-18 05:07:27"
+    },
+    {
+        "type": "bot",
+        "text": "Processing request...",
+        "timestamp": "2026-05-18 05:07:27"
+    }
+]

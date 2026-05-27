@@ -53,10 +53,12 @@ class SettingsController {
         $db = Database::getConnection();
         
         $keysToUpdate = [
-            'llm_provider', 'llm_model_name', 'groq_api_key', 'gemini_api_key', 
+            'llm_provider', 'llm_model_name', 'embedding_model_name', 'groq_api_key', 'gemini_api_key', 
             'qdrant_url', 'qdrant_api_key', 'admin_email', 
             'escalation_message', 'wp_path', 'product_feed_url',
-            'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_encryption'
+            'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_encryption',
+            'custom_prompt', 'chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links',
+            'tts_provider', 'tts_model_name', 'website_url'
         ];
 
         try {
@@ -65,7 +67,11 @@ class SettingsController {
             
             foreach ($keysToUpdate as $key) {
                 if (isset($data[$key])) {
-                    $stmt->execute([$key, $data[$key]]);
+                    $val = is_array($data[$key]) ? json_encode($data[$key]) : $data[$key];
+                    $stmt->execute([$key, $val]);
+                } else if ($key === 'quick_links') {
+                    // If no quick links submitted (all removed), save empty array
+                    $stmt->execute([$key, '[]']);
                 }
             }
 
@@ -83,6 +89,57 @@ class SettingsController {
             $_SESSION['error'] = 'Failed to save settings: ' . $e->getMessage();
         }
 
-        return $response->withHeader('Location', BASE_URL . '/admin/settings')->withStatus(302);
+        // Redirect back to the referrer if possible
+        $referer = $request->getHeaderLine('Referer');
+        if (empty($referer)) {
+            $referer = BASE_URL . '/admin/settings';
+        }
+        return $response->withHeader('Location', $referer)->withStatus(302);
+    }
+
+    public function showWidgetUi(Request $request, Response $response): Response {
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
+        
+        $db = Database::getConnection();
+        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links')");
+        $settings = [];
+        while ($row = $stmt->fetch()) {
+            $settings[$row['key']] = $row['value'];
+        }
+
+        $success = $_SESSION['success'] ?? null;
+        $error = $_SESSION['error'] ?? null;
+        unset($_SESSION['success'], $_SESSION['error']);
+
+        return $this->render($response, 'widget_ui', [
+            'settings' => $settings,
+            'success' => $success,
+            'error' => $error
+        ]);
+    }
+
+    public function listChatlogs(Request $request, Response $response): Response {
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
+        
+        $db = Database::getConnection();
+        $stmt = $db->query("SELECT * FROM chat_sessions ORDER BY updated_at DESC");
+        $sessions = $stmt->fetchAll();
+
+        return $this->render($response, 'chatlogs', [
+            'sessions' => $sessions
+        ]);
+    }
+
+    public function showChatlogDetail(Request $request, Response $response, array $args): Response {
+        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
+        
+        $sessionId = $args['session_id'] ?? '';
+        $logService = new \App\Services\ChatLogService();
+        $messages = $logService->getHistory($sessionId);
+
+        return $this->render($response, 'chatlog_detail', [
+            'sessionId' => $sessionId,
+            'messages' => $messages
+        ]);
     }
 }

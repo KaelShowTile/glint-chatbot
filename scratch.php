@@ -1,7 +1,12 @@
 <?php
-require 'src/Database.php';
-$db = App\Database::getConnection();
-$db->exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('gemini_api_key', 'dummy_key')");
-$db->exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('llm_provider', 'gemini')");
-$db->exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('llm_model_name', 'gemini-2.5-flash')");
-echo "Done";
+require 'vendor/autoload.php';
+$llm = new App\Services\LlmService();
+try {
+    $vector = $llm->embed('test');
+    echo "Vector size: " . count($vector) . "\n";
+    $qdrant = new App\Services\VectorService();
+    $res = $qdrant->search($vector, 1);
+    print_r($res);
+} catch (\Exception $e) {
+    echo "Error: " . $e->getMessage() . "\n";
+}

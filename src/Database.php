@@ -47,6 +47,37 @@ class Database {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+            
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT UNIQUE NOT NULL,
+                log_file TEXT NOT NULL,
+                message_count INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_functions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                call_id TEXT UNIQUE NOT NULL,
+                description TEXT NOT NULL,
+                js_code TEXT NOT NULL,
+                parameters_schema TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
         ");
+
+        try {
+            $pdo->exec("ALTER TABLE knowledge ADD COLUMN title TEXT");
+        } catch (\PDOException $e) {
+            // Column might already exist
+        }
+
+        try {
+            $pdo->exec("ALTER TABLE agent_functions ADD COLUMN parameters_schema TEXT");
+        } catch (\PDOException $e) {
+            // Column might already exist
+        }
     }
 }

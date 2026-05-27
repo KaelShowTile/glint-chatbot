@@ -21,6 +21,12 @@ return function (App $app) {
     $app->get('/admin/settings', \App\Controllers\SettingsController::class . ':show');
     $app->post('/admin/settings', \App\Controllers\SettingsController::class . ':update');
 
+    $app->get('/admin/widget-ui', \App\Controllers\SettingsController::class . ':showWidgetUi');
+    $app->post('/admin/widget-ui', \App\Controllers\SettingsController::class . ':update');
+
+    $app->get('/admin/chatlogs', \App\Controllers\SettingsController::class . ':listChatlogs');
+    $app->get('/admin/chatlogs/{session_id}', \App\Controllers\SettingsController::class . ':showChatlogDetail');
+
     $app->get('/admin/api/models', \App\Controllers\ApiController::class . ':listModels');
 
     $app->get('/admin/text', \App\Controllers\KnowledgeController::class . ':listText');
@@ -33,6 +39,13 @@ return function (App $app) {
 
     $app->get('/admin/products', \App\Controllers\KnowledgeController::class . ':listProducts');
     $app->post('/admin/products/sync', \App\Controllers\KnowledgeController::class . ':triggerSync');
+    $app->post('/admin/products/delete-all', \App\Controllers\KnowledgeController::class . ':deleteAllProducts');
+
+    $app->get('/admin/agent-functions', \App\Controllers\AgentFunctionController::class . ':index');
+    $app->post('/admin/agent-functions', \App\Controllers\AgentFunctionController::class . ':create');
+    $app->delete('/admin/agent-functions/{id}', \App\Controllers\AgentFunctionController::class . ':delete');
 
     $app->post('/api/chat', \App\Controllers\ChatController::class . ':handleChat');
+    $app->get('/api/chat/history', \App\Controllers\WidgetController::class . ':getHistory');
+    $app->get('/api/widget/config', \App\Controllers\WidgetController::class . ':getConfig');
 };

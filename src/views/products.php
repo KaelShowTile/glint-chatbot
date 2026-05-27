@@ -6,11 +6,18 @@
             <p class="text-sm text-gray-600 mb-1">Products are automatically synchronized from your feed URL.</p>
             <p class="text-xs text-gray-500">Current Feed URL: <?php echo htmlspecialchars($feedUrl ?? 'Not set'); ?></p>
         </div>
-        <form action="<?php echo BASE_URL; ?>/admin/products/sync" method="POST">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded">
-                Sync Now
-            </button>
-        </form>
+        <div class="flex space-x-2">
+            <form action="<?php echo BASE_URL; ?>/admin/products/delete-all" method="POST" onsubmit="return confirm('Are you sure you want to delete ALL products from the local database and the vector database? This cannot be undone.');">
+                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded">
+                    Delete All
+                </button>
+            </form>
+            <form action="<?php echo BASE_URL; ?>/admin/products/sync" method="POST">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded">
+                    Sync Now
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 

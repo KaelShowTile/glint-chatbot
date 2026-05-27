@@ -2,6 +2,9 @@
     <h2 class="text-xl font-bold mb-4">Add General Information</h2>
     <form action="<?php echo BASE_URL; ?>/admin/text" method="POST">
         <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Title (Optional)</label>
+            <input type="text" name="title" class="w-full border rounded px-3 py-2 mb-4" placeholder="e.g., Return Policy">
+            
             <label class="block text-sm font-medium text-gray-700 mb-1">Content (e.g., Return policy, Contact info)</label>
             <textarea name="content" class="w-full border rounded px-3 py-2 h-32" required></textarea>
         </div>
@@ -18,6 +21,7 @@
             <div class="border rounded p-4">
                 <form action="<?php echo BASE_URL; ?>/admin/text" method="POST" class="mb-2">
                     <input type="hidden" name="id" value="<?php echo $item['id']; ?>">
+                    <input type="text" name="title" value="<?php echo htmlspecialchars($item['title'] ?? ''); ?>" class="w-full border rounded px-3 py-2 mb-2" placeholder="Title (Optional)">
                     <textarea name="content" class="w-full border rounded px-3 py-2 h-24 mb-2" required><?php echo htmlspecialchars($item['content']); ?></textarea>
                     <div class="flex justify-end space-x-2">
                         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-1 rounded text-sm">Update</button>

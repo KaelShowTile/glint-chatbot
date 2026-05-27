@@ -12,14 +12,17 @@
     <div class="flex flex-col md:flex-row min-h-screen">
         <?php if (isset($_SESSION['user'])): ?>
             <div class="bg-gray-900 w-full md:w-64 flex flex-col text-white">
-                <div class="p-4 text-2xl font-bold border-b border-gray-800">ST Chatbot</div>
+                <div class="p-4 text-2xl font-bold border-b border-gray-800">ST AI Chatbot</div>
                 <nav class="flex-1 px-2 py-4 space-y-2">
-                    <a href="<?php echo BASE_URL; ?>/admin/text" class="block px-4 py-2 rounded hover:bg-gray-800">Upload
-                        Information</a>
-                    <a href="<?php echo BASE_URL; ?>/admin/qa" class="block px-4 py-2 rounded hover:bg-gray-800">Upload
-                        Q&A</a>
+                    <a href="<?php echo BASE_URL; ?>/admin/text"
+                        class="block px-4 py-2 rounded hover:bg-gray-800">Knowledge</a>
+                    <a href="<?php echo BASE_URL; ?>/admin/qa" class="block px-4 py-2 rounded hover:bg-gray-800">Q&A</a>
                     <a href="<?php echo BASE_URL; ?>/admin/products"
-                        class="block px-4 py-2 rounded hover:bg-gray-800">Upload Products</a>
+                        class="block px-4 py-2 rounded hover:bg-gray-800">Products</a>
+                    <a href="<?php echo BASE_URL; ?>/admin/widget-ui"
+                        class="block px-4 py-2 rounded hover:bg-gray-800">Widget UI</a>
+                    <a href="<?php echo BASE_URL; ?>/admin/chatlogs" class="block px-4 py-2 rounded hover:bg-gray-800">Chat Logs</a>
+                    <a href="<?php echo BASE_URL; ?>/admin/agent-functions" class="block px-4 py-2 rounded hover:bg-gray-800">Agent Functions</a>
                     <a href="<?php echo BASE_URL; ?>/admin/settings"
                         class="block px-4 py-2 rounded hover:bg-gray-800">Settings</a>
                 </nav>
