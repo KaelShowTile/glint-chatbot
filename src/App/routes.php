@@ -38,7 +38,9 @@ return function (App $app) {
     $app->get('/admin/qa/delete/{id}', \App\Controllers\KnowledgeController::class . ':deleteQa');
 
     $app->get('/admin/products', \App\Controllers\KnowledgeController::class . ':listProducts');
-    $app->post('/admin/products/sync', \App\Controllers\KnowledgeController::class . ':triggerSync');
+    $app->post('/admin/products/sync/prepare', \App\Controllers\KnowledgeController::class . ':prepareSync');
+    $app->post('/admin/products/sync/chunk', \App\Controllers\KnowledgeController::class . ':processSyncChunk');
+    $app->post('/admin/products/sync/finalize', \App\Controllers\KnowledgeController::class . ':finalizeSync');
     $app->post('/admin/products/delete-all', \App\Controllers\KnowledgeController::class . ':deleteAllProducts');
 
     $app->get('/admin/agent-functions', \App\Controllers\AgentFunctionController::class . ':index');

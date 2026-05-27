@@ -226,19 +226,48 @@ class KnowledgeController {
         ]);
     }
 
-    public function triggerSync(Request $request, Response $response): Response {
-        if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
+    public function prepareSync(Request $request, Response $response): Response {
+        if (!isset($_SESSION['user'])) return $response->withStatus(403);
         
-        $syncService = new \App\Services\SyncService();
-        $success = $syncService::syncProducts();
-
-        if ($success) {
-            $_SESSION['success'] = 'Products synchronized successfully.';
-        } else {
-            $_SESSION['error'] = 'Failed to synchronize products. Check the feed URL and format.';
+        try {
+            $syncService = new \App\Services\SyncService();
+            $result = $syncService::prepareSync();
+            $response->getBody()->write(json_encode(['success' => true, 'data' => $result]));
+        } catch (\Exception $e) {
+            $response->getBody()->write(json_encode(['success' => false, 'error' => $e->getMessage()]));
         }
 
-        return $response->withHeader('Location', BASE_URL . '/admin/products')->withStatus(302);
+        return $response->withHeader('Content-Type', 'application/json');
+    }
+
+    public function processSyncChunk(Request $request, Response $response): Response {
+        if (!isset($_SESSION['user'])) return $response->withStatus(403);
+        
+        try {
+            $syncService = new \App\Services\SyncService();
+            // Process 15 items per chunk by default to balance speed and timeout risk
+            $result = $syncService::processSyncChunk(15);
+            $response->getBody()->write(json_encode(['success' => true, 'data' => $result]));
+        } catch (\Exception $e) {
+            $response->getBody()->write(json_encode(['success' => false, 'error' => $e->getMessage()]));
+        }
+
+        return $response->withHeader('Content-Type', 'application/json');
+    }
+
+    public function finalizeSync(Request $request, Response $response): Response {
+        if (!isset($_SESSION['user'])) return $response->withStatus(403);
+        
+        try {
+            $syncService = new \App\Services\SyncService();
+            $syncService::finalizeSync();
+            $_SESSION['success'] = 'Products synchronized successfully.';
+            $response->getBody()->write(json_encode(['success' => true]));
+        } catch (\Exception $e) {
+            $response->getBody()->write(json_encode(['success' => false, 'error' => $e->getMessage()]));
+        }
+
+        return $response->withHeader('Content-Type', 'application/json');
     }
 
     public function deleteAllProducts(Request $request, Response $response): Response {
