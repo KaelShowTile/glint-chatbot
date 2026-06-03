@@ -45,7 +45,7 @@ export default function App() {
         const url = new URL(scriptTag.src);
         defaultApiUrl = url.origin + url.pathname.replace('/widget.js', '/api');
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const baseUrl = window.glintChatbotConfig?.apiUrl ? window.glintChatbotConfig.apiUrl.replace('/chat', '') : defaultApiUrl;
 
@@ -126,7 +126,7 @@ export default function App() {
           const url = new URL(scriptTag.src);
           defaultApiUrl = url.origin + url.pathname.replace('/widget.js', '/api/chat');
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // In production, this would point to the absolute URL of the backend API
       const apiUrl = window.glintChatbotConfig?.apiUrl || defaultApiUrl;
@@ -136,7 +136,7 @@ export default function App() {
           role: m.type === 'bot' ? 'assistant' : 'user',
           content: m.text
         }));
-        
+
       chatHistory.push({ role: 'user', content: userMessage.text });
 
       const response = await fetch(apiUrl, {
@@ -153,7 +153,7 @@ export default function App() {
       }
 
       const data = await response.json();
-      
+
       const botMessage = { id: Date.now() + 1, type: 'bot', text: data.reply };
       setMessages(prev => [...prev, botMessage]);
 
@@ -184,7 +184,7 @@ export default function App() {
 
   const handleAudioSend = async (audioBlob) => {
     setIsLoading(true);
-    
+
     // Add a temporary user message placeholder for UI feedback
     const tempUserMsgId = Date.now();
     setMessages(prev => [...prev, { id: tempUserMsgId, type: 'user', text: '🎤 (Voice Message)' }]);
@@ -197,7 +197,7 @@ export default function App() {
           const url = new URL(scriptTag.src);
           defaultApiUrl = url.origin + url.pathname.replace('/widget.js', '/api/chat');
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const apiUrl = window.glintChatbotConfig?.apiUrl || defaultApiUrl;
       const chatHistory = messages
@@ -222,7 +222,7 @@ export default function App() {
       }
 
       const data = await response.json();
-      
+
       // Replace the temporary message with the actual transcribed text if provided
       if (data.user_text) {
         setMessages(prev => prev.map(m => m.id === tempUserMsgId ? { ...m, text: data.user_text } : m));
@@ -314,20 +314,20 @@ export default function App() {
           </div>
 
           <div className="glint-chatbot-tabs">
-            <button 
+            <button
               className={`glint-tab ${activeTab === 'text' ? 'active' : ''}`}
               onClick={() => setActiveTab('text')}
             >
               Text
             </button>
-            <button 
+            <button
               className={`glint-tab ${activeTab === 'voice' ? 'active' : ''}`}
               onClick={() => setActiveTab('voice')}
             >
               Voice
             </button>
           </div>
-          
+
           <div className="glint-chatbot-messages">
             {messages.map(msg => (
               <div key={msg.id} className={`glint-message-wrapper ${msg.type}`}>
@@ -346,12 +346,12 @@ export default function App() {
                   )}
                   <div className={`glint-message ${msg.type}`}>
                     {msg.type === 'bot' ? (
-                      <div 
+                      <div
                         className="glint-markdown"
                         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(msg.text)) }}
                       />
                     ) : msg.type === 'bot_custom' ? (
-                      <div 
+                      <div
                         className="glint-custom-html"
                         dangerouslySetInnerHTML={{ __html: msg.html }}
                       />
@@ -400,29 +400,29 @@ export default function App() {
           <div className="glint-chatbot-input-area">
             {activeTab === 'text' ? (
               <>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="glint-chatbot-input"
-                  placeholder="Type your message..." 
+                  placeholder="Type your message..."
                   value={input}
                   onInput={e => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={isLoading}
                 />
-                <button 
+                <button
                   className="glint-chatbot-send"
                   onClick={handleSend}
                   disabled={isLoading || !input.trim()}
                   aria-label="Send Message"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M2.01 21L23 12L2.01 3L2 10l15 2-15 2z" fill="currentColor"/>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2.01 21L23 12L2.01 3L2 10l15 2-15 2z" fill="currentColor" />
                   </svg>
                 </button>
               </>
             ) : (
               <div className="glint-chatbot-voice-area">
-                <button 
+                <button
                   className={`glint-voice-btn ${isRecording ? 'recording' : ''}`}
                   onMouseDown={startRecording}
                   onMouseUp={stopRecording}
@@ -446,7 +446,7 @@ export default function App() {
       {!isOpen && (
         <button className="glint-chatbot-toggle" onClick={toggleOpen} aria-label="Open Chat">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="currentColor"/>
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="currentColor" />
           </svg>
         </button>
       )}
