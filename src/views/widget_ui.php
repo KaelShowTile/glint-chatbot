@@ -28,6 +28,11 @@
                 <textarea name="chatbot_greeting" class="w-full border rounded px-3 py-2 h-20" placeholder="Hello! How can I help you today?"><?php echo htmlspecialchars($settings['chatbot_greeting'] ?? ''); ?></textarea>
                 <p class="text-xs text-gray-500 mt-1">This is the first message the user sees when they open the chat.</p>
             </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Toggle Button Custom HTML/SVG</label>
+                <textarea name="toggle_icon_html" class="w-full border rounded px-3 py-2 h-20" placeholder="<svg>...</svg> or <img src='...'>"><?php echo htmlspecialchars($settings['toggle_icon_html'] ?? ''); ?></textarea>
+                <p class="text-xs text-gray-500 mt-1">Leave blank to use the default chat bubble icon. Otherwise, provide HTML to render inside the toggle button.</p>
+            </div>
         </div>
 
         <div class="mb-8">

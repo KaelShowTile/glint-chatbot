@@ -132,7 +132,7 @@ export default function App() {
       // In production, this would point to the absolute URL of the backend API
       const apiUrl = window.glintChatbotConfig?.apiUrl || defaultApiUrl;
       const chatHistory = messages
-        .filter(m => m.type !== 'system')
+        .filter(m => m.type !== 'system' && m.type !== 'bot_custom' && !!m.text)
         .map(m => ({
           role: m.type === 'bot' ? 'assistant' : 'user',
           content: m.text
@@ -207,7 +207,7 @@ export default function App() {
 
       const apiUrl = window.glintChatbotConfig?.apiUrl || defaultApiUrl;
       const chatHistory = messages
-        .filter(m => m.type !== 'system' && m.id !== tempUserMsgId)
+        .filter(m => m.type !== 'system' && m.type !== 'bot_custom' && m.id !== tempUserMsgId && !!m.text)
         .map(m => ({
           role: m.type === 'bot' ? 'assistant' : 'user',
           content: m.text
@@ -456,9 +456,13 @@ export default function App() {
 
       {!isOpen && (
         <button className="glint-chatbot-toggle" onClick={toggleOpen} aria-label="Open Chat">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="currentColor" />
-          </svg>
+          {config.toggle_icon_html ? (
+            <div dangerouslySetInnerHTML={{ __html: config.toggle_icon_html }} />
+          ) : (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="currentColor" />
+            </svg>
+          )}
         </button>
       )}
     </div>

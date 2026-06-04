@@ -58,7 +58,7 @@ class SettingsController {
             'escalation_message', 'wp_path', 'product_feed_url',
             'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_encryption',
             'custom_prompt', 'chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links',
-            'tts_provider', 'tts_model_name', 'website_url'
+            'tts_provider', 'tts_model_name', 'website_url', 'toggle_icon_html'
         ];
 
         try {
@@ -101,7 +101,7 @@ class SettingsController {
         if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         
         $db = Database::getConnection();
-        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links')");
+        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links', 'toggle_icon_html')");
         $settings = [];
         while ($row = $stmt->fetch()) {
             $settings[$row['key']] = $row['value'];
@@ -137,9 +137,16 @@ class SettingsController {
         $logService = new \App\Services\ChatLogService();
         $messages = $logService->getHistory($sessionId);
 
+        $db = Database::getConnection();
+        $stmt = $db->prepare("SELECT customer_email, customer_address FROM chat_sessions WHERE session_id = ?");
+        $stmt->execute([$sessionId]);
+        $sessionData = $stmt->fetch() ?: [];
+
         return $this->render($response, 'chatlog_detail', [
             'sessionId' => $sessionId,
-            'messages' => $messages
+            'messages' => $messages,
+            'customerEmail' => $sessionData['customer_email'] ?? '',
+            'customerAddress' => $sessionData['customer_address'] ?? ''
         ]);
     }
 }

@@ -85,17 +85,17 @@ class LlmService {
         return $firstCandidate['content']['parts'][0]['text'] ?? "";
     }
 
-    public function chat(string $systemPrompt, array $messages, bool $allowTools = false) {
+    public function chat(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null) {
         $provider = $this->settings['llm_provider'] ?? 'gemini';
         
         if ($provider === 'groq') {
-            return $this->chatGroq($systemPrompt, $messages, $allowTools);
+            return $this->chatGroq($systemPrompt, $messages, $allowTools, $sessionId);
         } else {
-            return $this->chatGemini($systemPrompt, $messages, $allowTools);
+            return $this->chatGemini($systemPrompt, $messages, $allowTools, $sessionId);
         }
     }
 
-    private function chatGemini(string $systemPrompt, array $messages, bool $allowTools) {
+    private function chatGemini(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null) {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
         if (empty($apiKey)) throw new \Exception("Gemini API Key is not set.");
 
@@ -139,6 +139,19 @@ class LlmService {
                             'summary' => ['type' => 'STRING', 'description' => 'A detailed summary of the user issue.']
                         ],
                         'required' => ['summary']
+                    ]
+                ];
+            }
+            if ($sessionId !== null) {
+                $functionDeclarations[] = [
+                    'name' => 'save_customer_info',
+                    'description' => 'Save the customer\'s email address and/or physical address into the database when they provide it.',
+                    'parameters' => [
+                        'type' => 'OBJECT',
+                        'properties' => [
+                            'customer_email' => ['type' => 'STRING', 'description' => 'The customer\'s email address.'],
+                            'customer_address' => ['type' => 'STRING', 'description' => 'The customer\'s physical address.']
+                        ]
                     ]
                 ];
             }
@@ -201,6 +214,21 @@ class LlmService {
                     $summary = $args['summary'] ?? 'No summary provided.';
                     EmailService::sendEscalationEmail($summary);
                     $text = $this->settings['escalation_message'] ?? 'We have escalated your issue to our staff. They will contact you shortly.';
+                } elseif ($fnName === 'save_customer_info' && $sessionId !== null) {
+                    $email = $args['customer_email'] ?? null;
+                    $address = $args['customer_address'] ?? null;
+                    $db = Database::getConnection();
+                    $updates = [];
+                    $params = [];
+                    if ($email) { $updates[] = "customer_email = ?"; $params[] = $email; }
+                    if ($address) { $updates[] = "customer_address = ?"; $params[] = $address; }
+                    if (!empty($updates)) {
+                        $sql = "UPDATE chat_sessions SET " . implode(", ", $updates) . " WHERE session_id = ?";
+                        $params[] = $sessionId;
+                        $stmt = $db->prepare($sql);
+                        $stmt->execute($params);
+                    }
+                    $text = "I have successfully saved your contact information. Thank you!";
                 } elseif (isset($agentFunctionsMap[$fnName])) {
                     $executeJs = $agentFunctionsMap[$fnName];
                     $executeArgs = $args;
@@ -218,7 +246,7 @@ class LlmService {
         return ['text' => $text, 'execute_js' => $executeJs, 'execute_args' => $executeArgs];
     }
 
-    public function chatWithAudioOut(string $systemPrompt, array $messages, bool $allowTools = false) {
+    public function chatWithAudioOut(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null) {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
         if (empty($apiKey)) throw new \Exception("Gemini API Key is not set.");
         $modelName = $this->settings['tts_model_name'] ?? $this->settings['llm_model_name'] ?? 'gemini-2.5-flash';
@@ -263,6 +291,19 @@ class LlmService {
                             'summary' => ['type' => 'STRING', 'description' => 'Summary of issue']
                         ],
                         'required' => ['summary']
+                    ]
+                ];
+            }
+            if ($sessionId !== null) {
+                $functionDeclarations[] = [
+                    'name' => 'save_customer_info',
+                    'description' => 'Save the customer\'s email address and/or physical address into the database when they provide it.',
+                    'parameters' => [
+                        'type' => 'OBJECT',
+                        'properties' => [
+                            'customer_email' => ['type' => 'STRING', 'description' => 'The customer\'s email address.'],
+                            'customer_address' => ['type' => 'STRING', 'description' => 'The customer\'s physical address.']
+                        ]
                     ]
                 ];
             }
@@ -328,6 +369,21 @@ class LlmService {
                     $summary = $args['summary'] ?? 'No summary provided.';
                     EmailService::sendEscalationEmail($summary);
                     $text = $this->settings['escalation_message'] ?? 'We have escalated your issue to our staff. They will contact you shortly.';
+                } elseif ($fnName === 'save_customer_info' && $sessionId !== null) {
+                    $email = $args['customer_email'] ?? null;
+                    $address = $args['customer_address'] ?? null;
+                    $db = Database::getConnection();
+                    $updates = [];
+                    $params = [];
+                    if ($email) { $updates[] = "customer_email = ?"; $params[] = $email; }
+                    if ($address) { $updates[] = "customer_address = ?"; $params[] = $address; }
+                    if (!empty($updates)) {
+                        $sql = "UPDATE chat_sessions SET " . implode(", ", $updates) . " WHERE session_id = ?";
+                        $params[] = $sessionId;
+                        $stmt = $db->prepare($sql);
+                        $stmt->execute($params);
+                    }
+                    $text = "I have successfully saved your contact information. Thank you!";
                 } elseif (isset($agentFunctionsMap[$fnName])) {
                     $executeJs = $agentFunctionsMap[$fnName];
                     $executeArgs = $args;
@@ -339,7 +395,7 @@ class LlmService {
         return ['text' => trim($text), 'audioBase64' => $audioBase64, 'execute_js' => $executeJs, 'execute_args' => $executeArgs];
     }
 
-    private function chatGroq(string $systemPrompt, array $messages, bool $allowTools) {
+    private function chatGroq(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null) {
         $apiKey = $this->settings['groq_api_key'] ?? '';
         if (empty($apiKey)) throw new \Exception("Groq API Key is not set.");
 
@@ -383,6 +439,22 @@ class LlmService {
                                 'summary' => ['type' => 'string', 'description' => 'A detailed summary of the user issue.']
                             ],
                             'required' => ['summary']
+                        ]
+                    ]
+                ];
+            }
+            if ($sessionId !== null) {
+                $tools[] = [
+                    'type' => 'function',
+                    'function' => [
+                        'name' => 'save_customer_info',
+                        'description' => 'Save the customer\'s email address and/or physical address into the database when they provide it.',
+                        'parameters' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'customer_email' => ['type' => 'string', 'description' => 'The customer\'s email address.'],
+                                'customer_address' => ['type' => 'string', 'description' => 'The customer\'s physical address.']
+                            ]
                         ]
                     ]
                 ];
@@ -438,6 +510,21 @@ class LlmService {
                     $summary = $args['summary'] ?? 'No summary provided.';
                     EmailService::sendEscalationEmail($summary);
                     $text = $this->settings['escalation_message'] ?? 'We have escalated your issue to our staff. They will contact you shortly.';
+                } elseif ($fnName === 'save_customer_info' && $sessionId !== null) {
+                    $email = $args['customer_email'] ?? null;
+                    $address = $args['customer_address'] ?? null;
+                    $db = Database::getConnection();
+                    $updates = [];
+                    $params = [];
+                    if ($email) { $updates[] = "customer_email = ?"; $params[] = $email; }
+                    if ($address) { $updates[] = "customer_address = ?"; $params[] = $address; }
+                    if (!empty($updates)) {
+                        $sql = "UPDATE chat_sessions SET " . implode(", ", $updates) . " WHERE session_id = ?";
+                        $params[] = $sessionId;
+                        $stmt = $db->prepare($sql);
+                        $stmt->execute($params);
+                    }
+                    $text = "I have successfully saved your contact information. Thank you!";
                 } elseif (isset($agentFunctionsMap[$fnName])) {
                     $executeJs = $agentFunctionsMap[$fnName];
                     $executeArgs = $args;

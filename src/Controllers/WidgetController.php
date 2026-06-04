@@ -10,7 +10,7 @@ class WidgetController {
     
     public function getConfig(Request $request, Response $response): Response {
         $db = Database::getConnection();
-        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links', 'website_url')");
+        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links', 'website_url', 'toggle_icon_html')");
         $settings = [];
         while ($row = $stmt->fetch()) {
             $settings[$row['key']] = $row['value'];
@@ -27,7 +27,8 @@ class WidgetController {
             'avatar' => $settings['chatbot_avatar_url'] ?: '',
             'greeting' => $settings['chatbot_greeting'] ?: 'Hello! How can I help you today?',
             'quickLinks' => $quickLinks,
-            'website_url' => $settings['website_url'] ?? ''
+            'website_url' => $settings['website_url'] ?? '',
+            'toggle_icon_html' => $settings['toggle_icon_html'] ?? ''
         ];
 
         $response->getBody()->write(json_encode($config));

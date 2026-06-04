@@ -73,8 +73,7 @@ class ChatController
                 }
             }
 
-            // Step 4 & 5: Generate response with strict system prompt
-            $systemPrompt = "You are a helpful customer support AI for an e-commerce website. Answer the user's queries based on the following context. The context may include general information, faq, and product's details. If the user is asking about products, you MUST use the corresponding tool to display the products if you have such a tool available. Pass the exact Product IDs from the context to the tool. Do NOT list products in plain text if a tool is available. If the context does not contain the answer, politely inform the user that you don't know and ask if they would like you to contact a human staff member to assist them. If the user explicitly asks or agrees to contact a human, use the `contact_human` tool.\n\nContext:\n{$contextText}";
+            $systemPrompt = "You are a helpful customer support AI for an e-commerce website. Answer the user's queries based on the following context. The context may include general information, faq, and product's details. If the user is asking about products, you MUST use the corresponding tool to display the products if you have such a tool available. Pass the exact Product IDs from the context to the tool. Do NOT list products in plain text if a tool is available. If the context does not contain the answer, politely inform the user that you don't know and ask if they would like you to contact a human staff member to assist them. If the user explicitly asks or agrees to contact a human, use the `contact_human` tool.\n\nCRITICAL INSTRUCTION: If the user provides their email address or physical address at any point, or if you ask for it and they provide it, you MUST use the `save_customer_info` tool to save this information.\n\nContext:\n{$contextText}";
 
             $db = \App\Database::getConnection();
             $stmt = $db->query("SELECT value FROM settings WHERE key = 'custom_prompt'");
@@ -84,13 +83,13 @@ class ChatController
             }
 
             if ($isVoiceMode) {
-                $replyData = $llm->chatWithAudioOut($systemPrompt, $messages, true);
+                $replyData = $llm->chatWithAudioOut($systemPrompt, $messages, true, $sessionId);
                 $replyText = $replyData['text'];
                 $audioBase64 = $replyData['audioBase64'];
                 $executeJs = $replyData['execute_js'] ?? null;
                 $executeArgs = $replyData['execute_args'] ?? null;
             } else {
-                $replyData = $llm->chat($systemPrompt, $messages, true);
+                $replyData = $llm->chat($systemPrompt, $messages, true, $sessionId);
                 $replyText = $replyData['text'];
                 $audioBase64 = null;
                 $executeJs = $replyData['execute_js'] ?? null;
