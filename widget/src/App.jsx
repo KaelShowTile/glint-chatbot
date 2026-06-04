@@ -68,7 +68,8 @@ export default function App() {
               const history = data.messages.map((m, idx) => ({
                 id: Date.now() + idx,
                 type: m.type,
-                text: m.text
+                text: m.text,
+                html: m.html
               }));
               setMessages(history);
             } else {
@@ -164,6 +165,11 @@ export default function App() {
             addMessage: (htmlContent) => {
               const customMsg = { id: Date.now() + Math.random(), type: 'bot_custom', html: htmlContent };
               setMessages(prev => [...prev, customMsg]);
+              fetch(`${apiUrl}/log`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, type: 'bot_custom', html: htmlContent })
+              }).catch(err => console.error("Error logging fallback:", err));
             }
           };
           const dynamicFunction = new Function('args', 'widget', data.execute_js);
@@ -244,6 +250,11 @@ export default function App() {
             addMessage: (htmlContent) => {
               const customMsg = { id: Date.now() + Math.random(), type: 'bot_custom', html: htmlContent };
               setMessages(prev => [...prev, customMsg]);
+              fetch(`${apiUrl}/log`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, type: 'bot_custom', html: htmlContent })
+              }).catch(err => console.error("Error logging fallback:", err));
             }
           };
           const dynamicFunction = new Function('args', 'widget', data.execute_js);

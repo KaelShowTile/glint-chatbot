@@ -30,10 +30,10 @@
     bottom: 0;
     right: 0;
     width: 350px;
-    height: 550px;
+    height: 600px;
     background: #fff;
     border-radius: 12px;
-    box-shadow: 0 10px 25px #00000026;
+    box-shadow: 0 0 20px 2px rgba(0, 0, 0, 0.3);
     display: flex;
     flex-direction: column;
     overflow: hidden
@@ -182,7 +182,7 @@
 }
 
 #top input[type=text].glint-chatbot-input {
-    background: #f7f7f7;
+    background: #f1f5f9;
     border-radius: 7px;
     margin-bottom: 0;
     border-width: 0;
@@ -192,12 +192,13 @@
 
 .glint-quick-links {
     display: flex;
+    justify-content: space-between;
     flex-wrap: nowrap;
     overflow-x: auto;
-    gap: 8px;
-    padding: 8px 12px;
-    background: #fff;
-    border-top: 1px solid #e5e7eb
+    gap: 0;
+    padding: 0;
+    background: #f8fafc;
+    box-shadow: 0 0 25px 1px rgba(0, 0, 0, 0.1);
 }
 
 .glint-quick-links::-webkit-scrollbar {
@@ -212,21 +213,24 @@
 .glint-quick-link {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: #f1f5f9;
-    border-radius: 20px;
+    width: 100%;
+    gap: 4px;
+    padding: 8px 12px;
     font-size: 12px;
-    color: #334155;
+    color: #000;
     text-decoration: none;
     white-space: nowrap;
     transition: background-color .2s, color .2s;
-    border: 1px solid #e2e8f0
+    border-right: 1px solid #eaebeb;
 }
 
 .glint-quick-link:hover {
-    background: #e2e8f0;
+    background: #fefefe;
     color: #0f172a
+}
+
+.glint-custom-html .product-image img {
+    max-height: 215px;
 }
 
 .glint-chatbot-input {
@@ -270,7 +274,7 @@
 
 .glint-voice-btn {
     width: 100%;
-    padding: 8px;
+    padding: 6px;
     border: none;
     border-radius: 24px;
     background: #f1f5f9;
@@ -419,4 +423,10 @@
 
 .glint-markdown h3 {
     font-size: 1.05em
+}
+
+.wp-smiley .glint-quick-link-icon img.emoji {
+    height: 18px !important;
+    vertical-align: middle !important;
+    width: auto !important;
 }

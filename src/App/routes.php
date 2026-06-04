@@ -48,6 +48,7 @@ return function (App $app) {
     $app->delete('/admin/agent-functions/{id}', \App\Controllers\AgentFunctionController::class . ':delete');
 
     $app->post('/api/chat', \App\Controllers\ChatController::class . ':handleChat');
+    $app->post('/api/chat/log', \App\Controllers\ChatController::class . ':handleLogFallback');
     $app->get('/api/chat/history', \App\Controllers\WidgetController::class . ':getHistory');
     $app->get('/api/widget/config', \App\Controllers\WidgetController::class . ':getConfig');
 };

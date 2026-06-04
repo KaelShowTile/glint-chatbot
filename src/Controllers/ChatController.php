@@ -134,4 +134,26 @@ class ChatController
             return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
         }
     }
+
+    public function handleLogFallback(Request $request, Response $response): Response
+    {
+        $data = $request->getParsedBody();
+        if (empty($data) && $request->getBody()->getSize() > 0) {
+            $data = json_decode($request->getBody()->getContents(), true);
+        }
+
+        $sessionId = $data['session_id'] ?? '';
+        $type = $data['type'] ?? '';
+        $html = $data['html'] ?? '';
+
+        if (!empty($sessionId) && !empty($type) && !empty($html)) {
+            $logService = new \App\Services\ChatLogService();
+            $logService->appendMessages($sessionId, [
+                ['type' => $type, 'html' => $html]
+            ]);
+        }
+
+        $response->getBody()->write(json_encode(['success' => true]));
+        return $response->withHeader('Content-Type', 'application/json');
+    }
 }

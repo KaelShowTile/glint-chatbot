@@ -37,6 +37,10 @@
                             <div class="bg-blue-600 text-white px-4 py-3 rounded-2xl max-w-2xl whitespace-pre-wrap text-sm shadow-sm">
                                 <?php echo htmlspecialchars($msg['text'] ?? ''); ?>
                             </div>
+                        <?php elseif (($msg['type'] ?? '') === 'bot_custom'): ?>
+                            <div class="bg-white border text-gray-800 px-4 py-3 rounded-2xl max-w-2xl text-sm shadow-sm">
+                                <?php echo $msg['html'] ?? ''; ?>
+                            </div>
                         <?php else: ?>
                             <div class="bg-white border text-gray-800 px-4 py-3 rounded-2xl max-w-2xl text-sm shadow-sm bot-message-container">
                                 <div class="raw-markdown hidden"><?php echo htmlspecialchars($msg['text'] ?? ''); ?></div>
