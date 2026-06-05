@@ -271,166 +271,47 @@ class LlmService
 
     public function chatWithAudioOut(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null)
     {
-        $apiKey = $this->settings['gemini_api_key'] ?? '';
-        if (empty($apiKey))
-            throw new \Exception("Gemini API Key is not set.");
-        $modelName = $this->settings['tts_model_name'] ?? $this->settings['llm_model_name'] ?? 'gemini-2.5-flash';
-
-        $client = new Client();
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}";
-
-        $geminiMessages = [];
-        foreach ($messages as $msg) {
-            $geminiMessages[] = [
-                'role' => $msg['role'] === 'assistant' ? 'model' : 'user',
-                'parts' => [['text' => $msg['content']]]
-            ];
-        }
-
-        $payload = [
-            'systemInstruction' => [
-                'parts' => [['text' => $systemPrompt]]
-            ],
-            'contents' => $geminiMessages,
-            'generationConfig' => [
-                'temperature' => 0.1,
-                'responseModalities' => ['TEXT', 'AUDIO']
-            ]
-        ];
-
-        $agentFunctionsMap = [];
-        if ($allowTools) {
-            $db = Database::getConnection();
-            $stmt = $db->query("SELECT * FROM agent_functions");
-            $agentFunctions = $stmt->fetchAll();
-
-            $functionDeclarations = [];
-
-            if (($this->settings['enable_escalate_email'] ?? '') == '1') {
-                $functionDeclarations[] = [
-                    'name' => 'contact_human',
-                    'description' => 'Escalate the conversation to a human customer service representative.',
-                    'parameters' => [
-                        'type' => 'OBJECT',
-                        'properties' => [
-                            'summary' => ['type' => 'STRING', 'description' => 'Summary of issue']
-                        ],
-                        'required' => ['summary']
-                    ]
-                ];
-            }
-            if ($sessionId !== null) {
-                $functionDeclarations[] = [
-                    'name' => 'save_customer_info',
-                    'description' => 'Save the customer\'s email address and/or physical address into the database when they provide it.',
-                    'parameters' => [
-                        'type' => 'OBJECT',
-                        'properties' => [
-                            'customer_email' => ['type' => 'STRING', 'description' => 'The customer\'s email address.'],
-                            'customer_address' => ['type' => 'STRING', 'description' => 'The customer\'s physical address.'],
-                            'customer_contact_number' => ['type' => 'STRING', 'description' => 'The customer\'s contact phone number.']
-                        ]
-                    ]
-                ];
-            }
-
-            $fixSchemaTypes = function ($schema) use (&$fixSchemaTypes) {
-                if (is_array($schema)) {
-                    foreach ($schema as $k => $v) {
-                        if ($k === 'type' && is_string($v)) {
-                            $schema[$k] = strtoupper($v);
-                        } elseif (is_array($v)) {
-                            $schema[$k] = $fixSchemaTypes($v);
-                        }
-                    }
-                }
-                return $schema;
-            };
-
-            foreach ($agentFunctions as $fn) {
-                $agentFunctionsMap[$fn['call_id']] = $fn['js_code'];
-                $decl = [
-                    'name' => $fn['call_id'],
-                    'description' => $fn['description']
-                ];
-                if (!empty($fn['parameters_schema'])) {
-                    $schema = json_decode($fn['parameters_schema'], true);
-                    if ($schema) {
-                        $decl['parameters'] = $fixSchemaTypes($schema);
-                    }
-                }
-                $functionDeclarations[] = $decl;
-            }
-
-            if (!empty($functionDeclarations)) {
-                $payload['tools'] = [['functionDeclarations' => $functionDeclarations]];
-            }
-        }
-
-        $response = $client->post($url, [
-            'json' => $payload,
-            'headers' => ['Content-Type' => 'application/json']
-        ]);
-
-        $data = json_decode($response->getBody()->getContents(), true);
-        $firstCandidate = $data['candidates'][0] ?? null;
-        if (!$firstCandidate)
-            return ['text' => "Error generating response.", 'audioBase64' => null, 'execute_js' => null];
-
-        $text = "";
+        // 1. Get the normal text/tool response from the main chat method
+        $replyData = $this->chat($systemPrompt, $messages, $allowTools, $sessionId);
+        $text = $replyData['text'] ?? '';
+        $executeJs = $replyData['execute_js'] ?? null;
+        $executeArgs = $replyData['execute_args'] ?? null;
+        
         $audioBase64 = null;
-        $executeJs = null;
-        $executeArgs = [];
 
-        foreach ($firstCandidate['content']['parts'] as $part) {
-            if (isset($part['text'])) {
-                $text .= $part['text'];
-            }
-            if (isset($part['inlineData'])) {
-                $audioBase64 = $part['inlineData']['data'];
-            }
-            if (isset($part['functionCall'])) {
-                $fnName = $part['functionCall']['name'];
-                $args = $part['functionCall']['args'] ?? [];
-                if ($fnName === 'contact_human') {
-                    $summary = $args['summary'] ?? 'No summary provided.';
-                    EmailService::sendEscalationEmail($summary, $sessionId);
-                    $text = $this->settings['escalation_message'] ?? 'We have escalated your issue to our staff. They will contact you shortly.';
-                } elseif ($fnName === 'save_customer_info' && $sessionId !== null) {
-                    $email = $args['customer_email'] ?? null;
-                    $address = $args['customer_address'] ?? null;
-                    $contact = $args['customer_contact_number'] ?? null;
-                    $db = Database::getConnection();
-                    $updates = [];
-                    $params = [];
-                    if ($email) {
-                        $updates[] = "customer_email = ?";
-                        $params[] = $email;
-                    }
-                    if ($address) {
-                        $updates[] = "customer_address = ?";
-                        $params[] = $address;
-                    }
-                    if ($contact) {
-                        $updates[] = "customer_contact_number = ?";
-                        $params[] = $contact;
-                    }
-                    if (!empty($updates)) {
-                        $sql = "UPDATE chat_sessions SET " . implode(", ", $updates) . " WHERE session_id = ?";
-                        $params[] = $sessionId;
-                        $stmt = $db->prepare($sql);
-                        $stmt->execute($params);
-                    }
-                    $text = "Got it! How can I help you now?";
-                } elseif (isset($agentFunctionsMap[$fnName])) {
-                    $executeJs = $agentFunctionsMap[$fnName];
-                    $executeArgs = $args;
-                    $text = "Processing request...";
+        // 2. Generate Audio using the TTS model
+        $apiKey = $this->settings['gemini_api_key'] ?? '';
+        $ttsModelName = $this->settings['tts_model_name'] ?? 'gemini-2.5-flash-preview-tts';
+        
+        if (!empty($apiKey) && !empty($text) && $text !== 'Processing request...' && $text !== 'No response text.') {
+            try {
+                $client = new Client();
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$ttsModelName}:generateContent?key={$apiKey}";
+                $payload = [
+                    'contents' => [['role' => 'user', 'parts' => [['text' => "Please generate audio for this exact text:\n" . $text]]]],
+                    'generationConfig' => [
+                        'responseModalities' => ['AUDIO']
+                    ]
+                ];
+                $response = $client->post($url, [
+                    'json' => $payload,
+                    'headers' => ['Content-Type' => 'application/json']
+                ]);
+                $data = json_decode($response->getBody()->getContents(), true);
+                if (isset($data['candidates'][0]['content']['parts'][0]['inlineData']['data'])) {
+                    $audioBase64 = $data['candidates'][0]['content']['parts'][0]['inlineData']['data'];
                 }
+            } catch (\Exception $e) {
+                error_log("TTS Error: " . $e->getMessage());
             }
         }
 
-        return ['text' => trim($text), 'audioBase64' => $audioBase64, 'execute_js' => $executeJs, 'execute_args' => $executeArgs];
+        return [
+            'text' => trim($text), 
+            'audioBase64' => $audioBase64, 
+            'execute_js' => $executeJs, 
+            'execute_args' => $executeArgs
+        ];
     }
 
     private function chatGroq(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null)
