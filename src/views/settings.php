@@ -15,6 +15,14 @@
                 <p class="text-xs text-gray-500 mt-1">The base URL of your website, used by Agent Functions to construct API requests.</p>
             </div>
 
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">App URL</label>
+                <input type="url" name="app_url"
+                    value="<?php echo htmlspecialchars($settings['app_url'] ?? ''); ?>"
+                    class="w-full border rounded px-3 py-2" placeholder="https://yourapp.com">
+                <p class="text-xs text-gray-500 mt-1">The base URL of this chatbot application.</p>
+            </div>
+
             <h3 class="text-lg font-semibold border-b pb-2 mb-4 mt-8">API Configuration</h3>
 
             <div class="mb-4">

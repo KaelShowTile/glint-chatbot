@@ -213,6 +213,7 @@
 .glint-quick-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
   gap: 4px;
   padding: 8px 12px;

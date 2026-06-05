@@ -58,7 +58,7 @@ class SettingsController {
             'escalation_message', 'wp_path', 'product_feed_url',
             'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_encryption',
             'custom_prompt', 'chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links',
-            'tts_provider', 'tts_model_name', 'website_url', 'toggle_icon_html'
+            'tts_provider', 'tts_model_name', 'website_url', 'app_url', 'toggle_icon_html'
         ];
 
         try {
@@ -138,7 +138,7 @@ class SettingsController {
         $messages = $logService->getHistory($sessionId);
 
         $db = Database::getConnection();
-        $stmt = $db->prepare("SELECT customer_email, customer_address FROM chat_sessions WHERE session_id = ?");
+        $stmt = $db->prepare("SELECT customer_email, customer_address, customer_contact_number FROM chat_sessions WHERE session_id = ?");
         $stmt->execute([$sessionId]);
         $sessionData = $stmt->fetch() ?: [];
 
@@ -146,7 +146,8 @@ class SettingsController {
             'sessionId' => $sessionId,
             'messages' => $messages,
             'customerEmail' => $sessionData['customer_email'] ?? '',
-            'customerAddress' => $sessionData['customer_address'] ?? ''
+            'customerAddress' => $sessionData['customer_address'] ?? '',
+            'customerContactNumber' => $sessionData['customer_contact_number'] ?? ''
         ]);
     }
 }

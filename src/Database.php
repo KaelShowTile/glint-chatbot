@@ -90,5 +90,11 @@ class Database {
         } catch (\PDOException $e) {
             // Column might already exist
         }
+
+        try {
+            $pdo->exec("ALTER TABLE chat_sessions ADD COLUMN customer_contact_number TEXT");
+        } catch (\PDOException $e) {
+            // Column might already exist
+        }
     }
 }

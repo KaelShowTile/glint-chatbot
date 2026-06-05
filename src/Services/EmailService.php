@@ -10,10 +10,12 @@ require_once __DIR__ . '/../PHPMailer/SMTP.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-class EmailService {
-    public static function sendEscalationEmail(string $summary): bool {
+class EmailService
+{
+    public static function sendEscalationEmail(string $summary, string $sectionID): bool
+    {
         $db = Database::getConnection();
-        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('admin_email', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_encryption')");
+        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('admin_email', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_encryption', 'app_url')");
         $settings = [];
         while ($row = $stmt->fetch()) {
             $settings[$row['key']] = $row['value'];
@@ -29,15 +31,15 @@ class EmailService {
             // Server settings
             if (!empty($settings['smtp_host'])) {
                 $mail->isSMTP();
-                $mail->Host       = $settings['smtp_host'];
-                $mail->SMTPAuth   = !empty($settings['smtp_user']);
-                $mail->Username   = $settings['smtp_user'] ?? '';
-                $mail->Password   = $settings['smtp_pass'] ?? '';
-                
+                $mail->Host = $settings['smtp_host'];
+                $mail->SMTPAuth = !empty($settings['smtp_user']);
+                $mail->Username = $settings['smtp_user'] ?? '';
+                $mail->Password = $settings['smtp_pass'] ?? '';
+
                 if (!empty($settings['smtp_encryption'])) {
                     $mail->SMTPSecure = $settings['smtp_encryption'] === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
                 }
-                $mail->Port       = $settings['smtp_port'] ?: 587;
+                $mail->Port = $settings['smtp_port'] ?: 587;
             }
 
             // Recipients
@@ -46,8 +48,9 @@ class EmailService {
 
             // Content
             $mail->isHTML(false);
-            $mail->Subject = 'Customer Support Escalation from AI';
-            $mail->Body    = "An AI customer service session has been escalated to human staff.\n\nHere is the summary of the customer's needs:\n------------------\n{$summary}\n------------------\n\nPlease follow up accordingly.";
+            $mail->Subject = 'Customer Support Escalation from Chat Agent';
+            $appUrl = rtrim($settings['app_url'] ?? '', '/');
+            $mail->Body = "\n\nHere is the summary of the customer's needs:\n------------------\n{$summary}\n------------------\n\nPlease follow up. Here is the chatlog：{$appUrl}/public/admin/chatlogs/{$sectionID}";
 
             $mail->send();
             return true;

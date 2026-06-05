@@ -13,7 +13,7 @@
         <div>
             <h2 class="text-2xl font-bold">Chat Log Details</h2>
             <p class="text-sm text-gray-500 font-mono mt-1">Session ID: <?php echo htmlspecialchars($sessionId); ?></p>
-            <?php if (!empty($customerEmail) || !empty($customerAddress)): ?>
+            <?php if (!empty($customerEmail) || !empty($customerAddress) || !empty($customerContactNumber)): ?>
                 <div class="mt-4 bg-blue-50 border border-blue-200 p-3 rounded-lg">
                     <h3 class="text-sm font-semibold text-blue-800 mb-2">Customer Details</h3>
                     <?php if (!empty($customerEmail)): ?>
@@ -21,6 +21,9 @@
                     <?php endif; ?>
                     <?php if (!empty($customerAddress)): ?>
                         <p class="text-sm text-blue-900 mt-1"><span class="font-medium">Address:</span> <?php echo htmlspecialchars($customerAddress); ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($customerContactNumber)): ?>
+                        <p class="text-sm text-blue-900 mt-1"><span class="font-medium">Contact Number:</span> <?php echo htmlspecialchars($customerContactNumber); ?></p>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>

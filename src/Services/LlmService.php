@@ -4,10 +4,12 @@ namespace App\Services;
 use GuzzleHttp\Client;
 use App\Database;
 
-class LlmService {
+class LlmService
+{
     private array $settings;
 
-    public function __construct() {
+    public function __construct()
+    {
         $db = Database::getConnection();
         $stmt = $db->query("SELECT key, value FROM settings");
         $this->settings = [];
@@ -16,14 +18,16 @@ class LlmService {
         }
     }
 
-    public function embed(string $text): array {
+    public function embed(string $text): array
+    {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
-        if (empty($apiKey)) throw new \Exception("Gemini API Key is not set.");
+        if (empty($apiKey))
+            throw new \Exception("Gemini API Key is not set.");
 
         $client = new Client();
         $modelName = $this->settings['embedding_model_name'] ?? 'gemini-embedding-001';
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:embedContent?key={$apiKey}";
-        
+
         $response = $client->post($url, [
             'json' => [
                 'model' => "models/{$modelName}",
@@ -38,21 +42,24 @@ class LlmService {
         $data = json_decode($response->getBody()->getContents(), true);
         return $data['embedding']['values'] ?? [];
     }
-    
-    public function getSearchIntent(string $query): string {
+
+    public function getSearchIntent(string $query): string
+    {
         $prompt = "Extract a clean, emotionless search intent or keyword list from the following user query. Return ONLY the search terms. Do not add any conversational text.\nQuery: " . $query;
         $result = $this->chat($prompt, [['role' => 'user', 'content' => $query]], false);
         return is_array($result) ? $result['text'] : $result;
     }
 
-    public function extractTextFromAudio(string $audioBase64, string $mimeType): string {
+    public function extractTextFromAudio(string $audioBase64, string $mimeType): string
+    {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
-        if (empty($apiKey)) throw new \Exception("Gemini API Key is not set.");
+        if (empty($apiKey))
+            throw new \Exception("Gemini API Key is not set.");
         $modelName = $this->settings['llm_model_name'] ?? 'gemini-2.5-flash';
-        
+
         $client = new Client();
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}";
-        
+
         $payload = [
             'contents' => [
                 [
@@ -85,9 +92,10 @@ class LlmService {
         return $firstCandidate['content']['parts'][0]['text'] ?? "";
     }
 
-    public function chat(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null) {
+    public function chat(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null)
+    {
         $provider = $this->settings['llm_provider'] ?? 'gemini';
-        
+
         if ($provider === 'groq') {
             return $this->chatGroq($systemPrompt, $messages, $allowTools, $sessionId);
         } else {
@@ -95,14 +103,16 @@ class LlmService {
         }
     }
 
-    private function chatGemini(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null) {
+    private function chatGemini(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null)
+    {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
-        if (empty($apiKey)) throw new \Exception("Gemini API Key is not set.");
+        if (empty($apiKey))
+            throw new \Exception("Gemini API Key is not set.");
 
         $modelName = $this->settings['llm_model_name'] ?? 'gemini-2.5-flash';
         $client = new Client();
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}";
-        
+
         $geminiMessages = [];
         foreach ($messages as $msg) {
             $geminiMessages[] = [
@@ -126,9 +136,9 @@ class LlmService {
             $db = Database::getConnection();
             $stmt = $db->query("SELECT * FROM agent_functions");
             $agentFunctions = $stmt->fetchAll();
-            
+
             $functionDeclarations = [];
-            
+
             if (($this->settings['enable_escalate_email'] ?? '') == '1') {
                 $functionDeclarations[] = [
                     'name' => 'contact_human',
@@ -150,13 +160,14 @@ class LlmService {
                         'type' => 'OBJECT',
                         'properties' => [
                             'customer_email' => ['type' => 'STRING', 'description' => 'The customer\'s email address.'],
-                            'customer_address' => ['type' => 'STRING', 'description' => 'The customer\'s physical address.']
+                            'customer_address' => ['type' => 'STRING', 'description' => 'The customer\'s physical address.'],
+                            'customer_contact_number' => ['type' => 'STRING', 'description' => 'The customer\'s contact phone number.']
                         ]
                     ]
                 ];
             }
 
-            $fixSchemaTypes = function($schema) use (&$fixSchemaTypes) {
+            $fixSchemaTypes = function ($schema) use (&$fixSchemaTypes) {
                 if (is_array($schema)) {
                     foreach ($schema as $k => $v) {
                         if ($k === 'type' && is_string($v)) {
@@ -196,7 +207,8 @@ class LlmService {
 
         $data = json_decode($response->getBody()->getContents(), true);
         $firstCandidate = $data['candidates'][0] ?? null;
-        if (!$firstCandidate) return ['text' => "Error generating response.", 'execute_js' => null];
+        if (!$firstCandidate)
+            return ['text' => "Error generating response.", 'execute_js' => null];
 
         $text = "";
         $executeJs = null;
@@ -212,23 +224,34 @@ class LlmService {
                 $args = $part['functionCall']['args'] ?? [];
                 if ($fnName === 'contact_human') {
                     $summary = $args['summary'] ?? 'No summary provided.';
-                    EmailService::sendEscalationEmail($summary);
-                    $text = $this->settings['escalation_message'] ?? 'We have escalated your issue to our staff. They will contact you shortly.';
+                    EmailService::sendEscalationEmail($summary, $sessionId);
+                    $text = $this->settings['escalation_message'] ?? 'Got it! I’ll pass it on to our team to assist you. Is there anything I can help you with for now?.';
                 } elseif ($fnName === 'save_customer_info' && $sessionId !== null) {
                     $email = $args['customer_email'] ?? null;
                     $address = $args['customer_address'] ?? null;
+                    $contact = $args['customer_contact_number'] ?? null;
                     $db = Database::getConnection();
                     $updates = [];
                     $params = [];
-                    if ($email) { $updates[] = "customer_email = ?"; $params[] = $email; }
-                    if ($address) { $updates[] = "customer_address = ?"; $params[] = $address; }
+                    if ($email) {
+                        $updates[] = "customer_email = ?";
+                        $params[] = $email;
+                    }
+                    if ($address) {
+                        $updates[] = "customer_address = ?";
+                        $params[] = $address;
+                    }
+                    if ($contact) {
+                        $updates[] = "customer_contact_number = ?";
+                        $params[] = $contact;
+                    }
                     if (!empty($updates)) {
                         $sql = "UPDATE chat_sessions SET " . implode(", ", $updates) . " WHERE session_id = ?";
                         $params[] = $sessionId;
                         $stmt = $db->prepare($sql);
                         $stmt->execute($params);
                     }
-                    $text = "I have successfully saved your contact information. Thank you!";
+                    $text = "Got it! How can I help you now?";
                 } elseif (isset($agentFunctionsMap[$fnName])) {
                     $executeJs = $agentFunctionsMap[$fnName];
                     $executeArgs = $args;
@@ -246,14 +269,16 @@ class LlmService {
         return ['text' => $text, 'execute_js' => $executeJs, 'execute_args' => $executeArgs];
     }
 
-    public function chatWithAudioOut(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null) {
+    public function chatWithAudioOut(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null)
+    {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
-        if (empty($apiKey)) throw new \Exception("Gemini API Key is not set.");
+        if (empty($apiKey))
+            throw new \Exception("Gemini API Key is not set.");
         $modelName = $this->settings['tts_model_name'] ?? $this->settings['llm_model_name'] ?? 'gemini-2.5-flash';
 
         $client = new Client();
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}";
-        
+
         $geminiMessages = [];
         foreach ($messages as $msg) {
             $geminiMessages[] = [
@@ -278,9 +303,9 @@ class LlmService {
             $db = Database::getConnection();
             $stmt = $db->query("SELECT * FROM agent_functions");
             $agentFunctions = $stmt->fetchAll();
-            
+
             $functionDeclarations = [];
-            
+
             if (($this->settings['enable_escalate_email'] ?? '') == '1') {
                 $functionDeclarations[] = [
                     'name' => 'contact_human',
@@ -302,13 +327,14 @@ class LlmService {
                         'type' => 'OBJECT',
                         'properties' => [
                             'customer_email' => ['type' => 'STRING', 'description' => 'The customer\'s email address.'],
-                            'customer_address' => ['type' => 'STRING', 'description' => 'The customer\'s physical address.']
+                            'customer_address' => ['type' => 'STRING', 'description' => 'The customer\'s physical address.'],
+                            'customer_contact_number' => ['type' => 'STRING', 'description' => 'The customer\'s contact phone number.']
                         ]
                     ]
                 ];
             }
 
-            $fixSchemaTypes = function($schema) use (&$fixSchemaTypes) {
+            $fixSchemaTypes = function ($schema) use (&$fixSchemaTypes) {
                 if (is_array($schema)) {
                     foreach ($schema as $k => $v) {
                         if ($k === 'type' && is_string($v)) {
@@ -348,7 +374,8 @@ class LlmService {
 
         $data = json_decode($response->getBody()->getContents(), true);
         $firstCandidate = $data['candidates'][0] ?? null;
-        if (!$firstCandidate) return ['text' => "Error generating response.", 'audioBase64' => null, 'execute_js' => null];
+        if (!$firstCandidate)
+            return ['text' => "Error generating response.", 'audioBase64' => null, 'execute_js' => null];
 
         $text = "";
         $audioBase64 = null;
@@ -367,23 +394,34 @@ class LlmService {
                 $args = $part['functionCall']['args'] ?? [];
                 if ($fnName === 'contact_human') {
                     $summary = $args['summary'] ?? 'No summary provided.';
-                    EmailService::sendEscalationEmail($summary);
+                    EmailService::sendEscalationEmail($summary, $sessionId);
                     $text = $this->settings['escalation_message'] ?? 'We have escalated your issue to our staff. They will contact you shortly.';
                 } elseif ($fnName === 'save_customer_info' && $sessionId !== null) {
                     $email = $args['customer_email'] ?? null;
                     $address = $args['customer_address'] ?? null;
+                    $contact = $args['customer_contact_number'] ?? null;
                     $db = Database::getConnection();
                     $updates = [];
                     $params = [];
-                    if ($email) { $updates[] = "customer_email = ?"; $params[] = $email; }
-                    if ($address) { $updates[] = "customer_address = ?"; $params[] = $address; }
+                    if ($email) {
+                        $updates[] = "customer_email = ?";
+                        $params[] = $email;
+                    }
+                    if ($address) {
+                        $updates[] = "customer_address = ?";
+                        $params[] = $address;
+                    }
+                    if ($contact) {
+                        $updates[] = "customer_contact_number = ?";
+                        $params[] = $contact;
+                    }
                     if (!empty($updates)) {
                         $sql = "UPDATE chat_sessions SET " . implode(", ", $updates) . " WHERE session_id = ?";
                         $params[] = $sessionId;
                         $stmt = $db->prepare($sql);
                         $stmt->execute($params);
                     }
-                    $text = "I have successfully saved your contact information. Thank you!";
+                    $text = "Got it! How can I help you now?";
                 } elseif (isset($agentFunctionsMap[$fnName])) {
                     $executeJs = $agentFunctionsMap[$fnName];
                     $executeArgs = $args;
@@ -395,18 +433,20 @@ class LlmService {
         return ['text' => trim($text), 'audioBase64' => $audioBase64, 'execute_js' => $executeJs, 'execute_args' => $executeArgs];
     }
 
-    private function chatGroq(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null) {
+    private function chatGroq(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null)
+    {
         $apiKey = $this->settings['groq_api_key'] ?? '';
-        if (empty($apiKey)) throw new \Exception("Groq API Key is not set.");
+        if (empty($apiKey))
+            throw new \Exception("Groq API Key is not set.");
 
         $modelName = $this->settings['llm_model_name'] ?? 'llama3-8b-8192';
         $client = new Client();
         $url = "https://api.groq.com/openai/v1/chat/completions";
-        
+
         $groqMessages = [
             ['role' => 'system', 'content' => $systemPrompt]
         ];
-        
+
         foreach ($messages as $msg) {
             $groqMessages[] = [
                 'role' => $msg['role'] === 'assistant' ? 'assistant' : 'user',
@@ -425,7 +465,7 @@ class LlmService {
             $db = Database::getConnection();
             $stmt = $db->query("SELECT * FROM agent_functions");
             $agentFunctions = $stmt->fetchAll();
-            
+
             $tools = [];
             if (($this->settings['enable_escalate_email'] ?? '') == '1') {
                 $tools[] = [
@@ -453,7 +493,8 @@ class LlmService {
                             'type' => 'object',
                             'properties' => [
                                 'customer_email' => ['type' => 'string', 'description' => 'The customer\'s email address.'],
-                                'customer_address' => ['type' => 'string', 'description' => 'The customer\'s physical address.']
+                                'customer_address' => ['type' => 'string', 'description' => 'The customer\'s physical address.'],
+                                'customer_contact_number' => ['type' => 'string', 'description' => 'The customer\'s contact phone number.']
                             ]
                         ]
                     ]
@@ -494,7 +535,8 @@ class LlmService {
 
         $data = json_decode($response->getBody()->getContents(), true);
         $firstChoice = $data['choices'][0] ?? null;
-        if (!$firstChoice) return ['text' => "Error generating response.", 'execute_js' => null];
+        if (!$firstChoice)
+            return ['text' => "Error generating response.", 'execute_js' => null];
 
         $message = $firstChoice['message'] ?? [];
         $text = $message['content'] ?? "No response text.";
@@ -508,23 +550,34 @@ class LlmService {
                 $args = json_decode($toolCall['function']['arguments'], true) ?? [];
                 if ($fnName === 'contact_human') {
                     $summary = $args['summary'] ?? 'No summary provided.';
-                    EmailService::sendEscalationEmail($summary);
+                    EmailService::sendEscalationEmail($summary, $sessionId);
                     $text = $this->settings['escalation_message'] ?? 'We have escalated your issue to our staff. They will contact you shortly.';
                 } elseif ($fnName === 'save_customer_info' && $sessionId !== null) {
                     $email = $args['customer_email'] ?? null;
                     $address = $args['customer_address'] ?? null;
+                    $contact = $args['customer_contact_number'] ?? null;
                     $db = Database::getConnection();
                     $updates = [];
                     $params = [];
-                    if ($email) { $updates[] = "customer_email = ?"; $params[] = $email; }
-                    if ($address) { $updates[] = "customer_address = ?"; $params[] = $address; }
+                    if ($email) {
+                        $updates[] = "customer_email = ?";
+                        $params[] = $email;
+                    }
+                    if ($address) {
+                        $updates[] = "customer_address = ?";
+                        $params[] = $address;
+                    }
+                    if ($contact) {
+                        $updates[] = "customer_contact_number = ?";
+                        $params[] = $contact;
+                    }
                     if (!empty($updates)) {
                         $sql = "UPDATE chat_sessions SET " . implode(", ", $updates) . " WHERE session_id = ?";
                         $params[] = $sessionId;
                         $stmt = $db->prepare($sql);
                         $stmt->execute($params);
                     }
-                    $text = "I have successfully saved your contact information. Thank you!";
+                    $text = "Got it! How can I help you now?";
                 } elseif (isset($agentFunctionsMap[$fnName])) {
                     $executeJs = $agentFunctionsMap[$fnName];
                     $executeArgs = $args;
