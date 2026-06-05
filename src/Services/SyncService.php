@@ -39,7 +39,14 @@ class SyncService
                 continue;
 
             $title = (string) ($g->title ?? $item->title);
-            $product_code = get_between($title, "(Code:", ")");
+            $product_code = '';
+            $codeStart = strpos($title, '(Code:');
+            if ($codeStart !== false) {
+                $codeEnd = strpos($title, ')', $codeStart);
+                if ($codeEnd !== false) {
+                    $product_code = trim(substr($title, $codeStart + 6, $codeEnd - $codeStart - 6));
+                }
+            }
             $desc = strip_tags((string) ($g->description ?? $item->description));
             $link = (string) ($g->link ?? $item->link);
             $image = (string) ($g->image_link ?? $item->image_link);
