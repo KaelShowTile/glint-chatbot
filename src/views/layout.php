@@ -22,6 +22,7 @@
                     <a href="<?php echo BASE_URL; ?>/admin/widget-ui"
                         class="block px-4 py-2 rounded hover:bg-gray-800">Widget UI</a>
                     <a href="<?php echo BASE_URL; ?>/admin/chatlogs" class="block px-4 py-2 rounded hover:bg-gray-800">Chat Logs</a>
+                    <a href="<?php echo BASE_URL; ?>/admin/reports" class="block px-4 py-2 rounded hover:bg-gray-800">Reports</a>
                     <a href="<?php echo BASE_URL; ?>/admin/agent-functions" class="block px-4 py-2 rounded hover:bg-gray-800">Agent Functions</a>
                     <a href="<?php echo BASE_URL; ?>/admin/settings"
                         class="block px-4 py-2 rounded hover:bg-gray-800">Settings</a>

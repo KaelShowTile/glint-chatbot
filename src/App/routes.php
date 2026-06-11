@@ -24,6 +24,8 @@ return function (App $app) {
     $app->get('/admin/widget-ui', \App\Controllers\SettingsController::class . ':showWidgetUi');
     $app->post('/admin/widget-ui', \App\Controllers\SettingsController::class . ':update');
 
+    $app->get('/admin/reports', \App\Controllers\ReportsController::class . ':show');
+
     $app->get('/admin/chatlogs', \App\Controllers\SettingsController::class . ':listChatlogs');
     $app->get('/admin/chatlogs/{session_id}', \App\Controllers\SettingsController::class . ':showChatlogDetail');
 

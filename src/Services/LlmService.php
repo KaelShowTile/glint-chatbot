@@ -222,6 +222,11 @@ class LlmService
             if (isset($part['functionCall'])) {
                 $fnName = $part['functionCall']['name'];
                 $args = $part['functionCall']['args'] ?? [];
+                
+                if ($sessionId) {
+                    $this->logFunctionCall($sessionId, $fnName);
+                }
+
                 if ($fnName === 'contact_human') {
                     $summary = $args['summary'] ?? 'No summary provided.';
                     EmailService::sendEscalationEmail($summary, $sessionId);
@@ -429,6 +434,11 @@ class LlmService
             if ($toolCall) {
                 $fnName = $toolCall['function']['name'];
                 $args = json_decode($toolCall['function']['arguments'], true) ?? [];
+                
+                if ($sessionId) {
+                    $this->logFunctionCall($sessionId, $fnName);
+                }
+
                 if ($fnName === 'contact_human') {
                     $summary = $args['summary'] ?? 'No summary provided.';
                     EmailService::sendEscalationEmail($summary, $sessionId);
@@ -468,5 +478,16 @@ class LlmService
         }
 
         return ['text' => $text, 'execute_js' => $executeJs, 'execute_args' => $executeArgs];
+    }
+
+    private function logFunctionCall(string $sessionId, string $functionName)
+    {
+        try {
+            $db = Database::getConnection();
+            $stmt = $db->prepare("INSERT INTO agent_function_logs (session_id, function_name) VALUES (?, ?)");
+            $stmt->execute([$sessionId, $functionName]);
+        } catch (\Exception $e) {
+            error_log("Failed to log function call: " . $e->getMessage());
+        }
     }
 }
