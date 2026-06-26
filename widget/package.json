@@ -8,13 +8,15 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@ricky0123/vad-web": "^0.0.30",
     "dompurify": "^3.4.1",
     "lucide-preact": "^0.303.0",
     "marked": "^18.0.2",
+    "onnxruntime-web": "^1.27.0",
     "preact": "^10.19.3"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.8.1",
-    "vite": "^5.0.10"
+    "vite": "^5.4.21"
   }
 }

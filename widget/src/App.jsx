@@ -6,13 +6,17 @@ import './style.css';
 
 export default function App() {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('text'); // 'text' or 'voice'
+  const [activeTab, setActiveTab] = useState('voice'); // 'voice' or 'text'
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isContinuousListening, setIsContinuousListening] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const micVADRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const currentAudioRef = useRef(null);
   const [sessionId, setSessionId] = useState('');
   const [config, setConfig] = useState({
     header: 'Customer Support',
@@ -149,6 +153,9 @@ export default function App() {
       });
 
       if (!response.ok) {
+        if (response.status === 0 || response.type === 'error') {
+          throw new Error(`Network response was not ok`);
+        }
         const errorText = await response.text();
         throw new Error(`Network response was not ok (Status: ${response.status}). Details: ${errorText}`);
       }
@@ -188,12 +195,81 @@ export default function App() {
     }
   };
 
+  // Helper function to convert Float32Array to WAV Blob
+  const float32ToWav = (float32Array, sampleRate = 16000) => {
+    const numChannels = 1;
+    const numSamples = float32Array.length;
+    const bytesPerSample = 2;
+    const blockAlign = numChannels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = numSamples * blockAlign;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    const writeString = (view, offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bytesPerSample * 8, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+      let s = Math.max(-1, Math.min(1, float32Array[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+  };
+
+  const loadVadScripts = async () => {
+    if (window.vad) return window.vad;
+
+    // Load ort.js first (required by vad-web script)
+    await new Promise((resolve, reject) => {
+      if (window.ort) return resolve();
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+
+    // Load vad-web
+    await new Promise((resolve, reject) => {
+      if (window.vad) return resolve();
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+
+    return window.vad;
+  };
+
   const handleAudioSend = async (audioBlob) => {
     setIsLoading(true);
 
     // Add a temporary user message placeholder for UI feedback
     const tempUserMsgId = Date.now();
     setMessages(prev => [...prev, { id: tempUserMsgId, type: 'user', text: '🎤 (Voice Message)' }]);
+
+    abortControllerRef.current = new AbortController();
 
     try {
       let defaultApiUrl = '/api/chat';
@@ -216,11 +292,12 @@ export default function App() {
       const formData = new FormData();
       formData.append('messages', JSON.stringify(chatHistory));
       formData.append('session_id', sessionId);
-      formData.append('audio', audioBlob, 'recording.webm');
+      formData.append('audio', audioBlob, 'recording.wav');
 
       const response = await fetch(apiUrl, {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: abortControllerRef.current.signal
       });
 
       if (!response.ok) {
@@ -240,7 +317,13 @@ export default function App() {
       if (data.audio) {
         const audioUrl = `data:audio/mp3;base64,${data.audio}`;
         const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
         audio.play().catch(e => console.error("Audio playback failed:", e));
+        audio.onended = () => {
+          if (currentAudioRef.current === audio) {
+            currentAudioRef.current = null;
+          }
+        };
       }
 
       if (data.execute_js) {
@@ -265,46 +348,88 @@ export default function App() {
       }
 
     } catch (error) {
-      console.error('Error sending audio:', error);
-      const errorMessage = { id: Date.now() + 1, type: 'system', text: 'Sorry, there was an error processing your voice.' };
-      setMessages(prev => [...prev, errorMessage]);
+      if (error.name === 'AbortError') {
+        console.log('Voice fetch aborted by user interruption.');
+        // Remove the temporary voice message if we aborted
+        setMessages(prev => prev.filter(m => m.id !== tempUserMsgId));
+      } else {
+        console.error('Error sending audio:', error);
+        const errorMessage = { id: Date.now() + 1, type: 'system', text: 'Sorry, there was an error processing your voice.' };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
-  const startRecording = async () => {
+  const startConversation = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
+      setIsLoading(true); // Show loading indicator while fetching VAD
+      const vad = await loadVadScripts();
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
         }
-      };
+      });
 
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        handleAudioSend(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
+      const myvad = await vad.MicVAD.new({
+        stream: stream,
+        workletURL: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/vad.worklet.bundle.min.js',
+        modelURL: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/silero_vad.onnx',
+        ortWasmUrl: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort-wasm.wasm',
+        ortWasmSimdUrl: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort-wasm-simd.wasm',
+        onSpeechStart: () => {
+          console.log("Speech started");
+          // Barge-in: pause playing audio
+          if (currentAudioRef.current) {
+            currentAudioRef.current.pause();
+            currentAudioRef.current = null;
+          }
+          // Barge-in: abort pending fetch
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+          }
+        },
+        onSpeechEnd: (audioData) => {
+          console.log("Speech ended");
+          const wavBlob = float32ToWav(audioData, 16000);
+          handleAudioSend(wavBlob);
+        }
+      });
 
-      mediaRecorder.start();
-      setIsRecording(true);
+
+      micVADRef.current = myvad;
+      myvad.start();
+
+      setIsContinuousListening(true);
+      setIsLoading(false);
     } catch (err) {
-      console.error("Error accessing microphone:", err);
-      alert("Microphone access is required for voice chat.");
+      console.error("Error starting conversation:", err);
+      setIsContinuousListening(false);
+      setIsLoading(false);
+      alert("Failed to start voice activity detection. Please allow microphone access.");
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+  const stopConversation = () => {
+    if (micVADRef.current) {
+      micVADRef.current.pause();
+      micVADRef.current = null;
     }
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsContinuousListening(false);
   };
 
   const handleKeyDown = (e) => {
@@ -326,16 +451,16 @@ export default function App() {
 
           <div className="glint-chatbot-tabs">
             <button
-              className={`glint-tab ${activeTab === 'text' ? 'active' : ''}`}
-              onClick={() => setActiveTab('text')}
-            >
-              Text
-            </button>
-            <button
               className={`glint-tab ${activeTab === 'voice' ? 'active' : ''}`}
               onClick={() => setActiveTab('voice')}
             >
               Voice
+            </button>
+            <button
+              className={`glint-tab ${activeTab === 'text' ? 'active' : ''}`}
+              onClick={() => setActiveTab('text')}
+            >
+              Text
             </button>
           </div>
 
@@ -433,21 +558,26 @@ export default function App() {
               </>
             ) : (
               <div className="glint-chatbot-voice-area">
-                <button
-                  className={`glint-voice-btn ${isRecording ? 'recording' : ''}`}
-                  onMouseDown={startRecording}
-                  onMouseUp={stopRecording}
-                  onMouseLeave={stopRecording}
-                  onTouchStart={startRecording}
-                  onTouchEnd={stopRecording}
-                  disabled={isLoading}
-                >
-                  {isRecording ? (
-                    <span className="glint-voice-recording-text">Release to Send</span>
-                  ) : (
-                    <span className="glint-voice-idle-text">🎤 Hold to Speak</span>
-                  )}
-                </button>
+                {!isContinuousListening ? (
+                  <button
+                    key="start-btn"
+                    className="glint-voice-btn"
+                    onClick={startConversation}
+                    disabled={isLoading}
+                  >
+                    <span className="glint-voice-idle-text">▶️ Tap to Start Conversation</span>
+                  </button>
+                ) : (
+                  <button
+                    key="stop-btn"
+                    className={`glint-voice-btn ${!isLoading ? 'recording' : ''}`}
+                    onClick={stopConversation}
+                  >
+                    <span className="glint-voice-recording-text">
+                      ⏹ {!isLoading ? 'Listening for your voice...' : 'Answering...'}
+                    </span>
+                  </button>
+                )}
               </div>
             )}
           </div>
