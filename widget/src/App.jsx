@@ -315,7 +315,7 @@ export default function App() {
       setMessages(prev => [...prev, botMessage]);
 
       if (data.audio) {
-        const audioUrl = `data:audio/mp3;base64,${data.audio}`;
+        const audioUrl = `data:audio/wav;base64,${data.audio}`;
         const audio = new Audio(audioUrl);
         currentAudioRef.current = audio;
         audio.play().catch(e => console.error("Audio playback failed:", e));

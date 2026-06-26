@@ -304,7 +304,31 @@ class LlmService
                 ]);
                 $data = json_decode($response->getBody()->getContents(), true);
                 if (isset($data['candidates'][0]['content']['parts'][0]['inlineData']['data'])) {
-                    $audioBase64 = $data['candidates'][0]['content']['parts'][0]['inlineData']['data'];
+                    $rawBase64 = $data['candidates'][0]['content']['parts'][0]['inlineData']['data'];
+                    $pcmData = base64_decode($rawBase64);
+                    
+                    // Gemini TTS returns raw 24kHz 16-bit mono PCM. We must add a 44-byte WAV header.
+                    $sampleRate = 24000;
+                    $channels = 1;
+                    $bitsPerSample = 16;
+                    $dataLength = strlen($pcmData);
+                    $fileLength = $dataLength + 36;
+                    $byteRate = $sampleRate * $channels * ($bitsPerSample / 8);
+                    $blockAlign = $channels * ($bitsPerSample / 8);
+
+                    $header = pack('A4V', 'RIFF', $fileLength);
+                    $header .= pack('A4', 'WAVE');
+                    $header .= pack('A4V', 'fmt ', 16);
+                    $header .= pack('v', 1); // PCM format
+                    $header .= pack('v', $channels);
+                    $header .= pack('V', $sampleRate);
+                    $header .= pack('V', $byteRate);
+                    $header .= pack('v', $blockAlign);
+                    $header .= pack('v', $bitsPerSample);
+                    $header .= pack('A4V', 'data', $dataLength);
+
+                    $wavData = $header . $pcmData;
+                    $audioBase64 = base64_encode($wavData);
                 }
             } catch (\Exception $e) {
                 error_log("TTS Error: " . $e->getMessage());
