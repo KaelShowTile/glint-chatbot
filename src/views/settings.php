@@ -65,7 +65,7 @@
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">LLM Model Name</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">LLM Model Name (Chat)</label>
                 <div class="flex">
                     <select id="llm_model_name" name="llm_model_name" class="w-full border rounded px-3 py-2 bg-gray-50"
                         data-selected="<?php echo htmlspecialchars($settings['llm_model_name'] ?? ''); ?>">
@@ -74,6 +74,17 @@
                     <button type="button" id="btn_refresh_models"
                         class="ml-2 bg-gray-200 hover:bg-gray-300 px-4 rounded border text-sm font-medium">Refresh</button>
                 </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Vision / Image Detection Model Name</label>
+                <div class="flex">
+                    <select id="vision_model_name" name="vision_model_name" class="w-full border rounded px-3 py-2 bg-gray-50"
+                        data-selected="<?php echo htmlspecialchars($settings['vision_model_name'] ?? 'gemini-2.5-pro'); ?>">
+                        <option value="">Select provider first...</option>
+                    </select>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Model used for bounding box detection when user uploads multiple items in one image. Highly recommend gemini-2.5-pro.</p>
             </div>
 
             <div class="mb-4">
@@ -288,14 +299,23 @@
                 });
         }
 
-        providerSelect.addEventListener('change', () => loadModels(modelSelect, providerSelect.value, 'generate', refreshBtn));
-        refreshBtn.addEventListener('click', () => loadModels(modelSelect, providerSelect.value, 'generate', refreshBtn));
+        const visionModelSelect = document.getElementById('vision_model_name');
+
+        providerSelect.addEventListener('change', () => {
+            loadModels(modelSelect, providerSelect.value, 'generate', refreshBtn);
+            loadModels(visionModelSelect, 'gemini', 'generate', null);
+        });
+        refreshBtn.addEventListener('click', () => {
+            loadModels(modelSelect, providerSelect.value, 'generate', refreshBtn);
+            loadModels(visionModelSelect, 'gemini', 'generate', null);
+        });
         refreshEmbeddingBtn.addEventListener('click', () => loadModels(embeddingModelSelect, 'gemini', 'embed', refreshEmbeddingBtn));
         ttsProviderSelect.addEventListener('change', () => loadModels(ttsModelSelect, ttsProviderSelect.value, 'generate', refreshTtsBtn));
         refreshTtsBtn.addEventListener('click', () => loadModels(ttsModelSelect, ttsProviderSelect.value, 'generate', refreshTtsBtn));
 
         // Initial load
         loadModels(modelSelect, providerSelect.value, 'generate', refreshBtn);
+        loadModels(visionModelSelect, 'gemini', 'generate', null);
         loadModels(embeddingModelSelect, 'gemini', 'embed', refreshEmbeddingBtn);
         loadModels(ttsModelSelect, ttsProviderSelect.value, 'generate', refreshTtsBtn);
     });

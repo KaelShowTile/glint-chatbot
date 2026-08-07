@@ -18,21 +18,41 @@ class LlmService
         }
     }
 
-    public function embed(string $text): array
+    public function embed(?string $text = null, ?string $imageBase64 = null, ?string $mimeType = 'image/jpeg'): array
     {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
         if (empty($apiKey))
             throw new \Exception("Gemini API Key is not set.");
 
         $client = new Client();
-        $modelName = $this->settings['embedding_model_name'] ?? 'gemini-embedding-001';
+        $modelName = $this->settings['embedding_model_name'] ?? 'gemini-embedding-2'; // Updated to use multimodal by default if not set or set to old one
+        if ($modelName === 'gemini-embedding-001') {
+            $modelName = 'gemini-embedding-2'; // Force upgrade for multimodal support
+        }
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:embedContent?key={$apiKey}";
+
+        $parts = [];
+        if (!empty($text)) {
+            $parts[] = ['text' => $text];
+        }
+        if (!empty($imageBase64)) {
+            $parts[] = [
+                'inlineData' => [
+                    'mimeType' => $mimeType,
+                    'data' => $imageBase64
+                ]
+            ];
+        }
+
+        if (empty($parts)) {
+            throw new \Exception("Must provide either text or image for embedding.");
+        }
 
         $response = $client->post($url, [
             'json' => [
                 'model' => "models/{$modelName}",
                 'content' => [
-                    'parts' => [['text' => $text]]
+                    'parts' => $parts
                 ],
                 'outputDimensionality' => 768
             ],
@@ -41,6 +61,92 @@ class LlmService
 
         $data = json_decode($response->getBody()->getContents(), true);
         return $data['embedding']['values'] ?? [];
+    }
+
+    public function generateSparseVector(string $text): array
+    {
+        $text = strtolower($text);
+        // Remove punctuation
+        $text = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $text);
+        $words = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+        
+        $frequencies = array_count_values($words);
+        
+        $indices = [];
+        $values = [];
+        
+        foreach ($frequencies as $word => $count) {
+            // Hashing trick to map words to a fixed size vocabulary (e.g., 1 million)
+            $index = crc32($word) % 1000000;
+            if ($index < 0) $index += 1000000;
+            
+            // Handle hash collisions simply by adding counts (simple term frequency)
+            $pos = array_search($index, $indices);
+            if ($pos !== false) {
+                $values[$pos] += $count;
+            } else {
+                $indices[] = $index;
+                $values[] = (float)$count; // Simple TF
+            }
+        }
+        
+        // Qdrant requires indices to be sorted
+        array_multisort($indices, SORT_ASC, $values);
+        
+        return [
+            'indices' => $indices,
+            'values' => $values
+        ];
+    }
+
+    public function detectObjectsInImage(string $imageBase64, string $mimeType): array
+    {
+        $apiKey = $this->settings['gemini_api_key'] ?? '';
+        if (empty($apiKey)) throw new \Exception("Gemini API Key is not set.");
+
+        $client = new Client();
+        $modelName = $this->settings['vision_model_name'] ?? 'gemini-2.5-pro';
+        if (empty($modelName)) $modelName = 'gemini-2.5-pro';
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}";
+
+        $prompt = "Detect the main tiles (e.g., wall tiles, floor tiles, ceramic tiles, mosaic tiles) in this image that a user might want to search for in a tile e-commerce store. ONLY detect tiles; ignore people, furniture, plants, or other irrelevant objects. Return the result strictly as a JSON array of objects, where each object has a 'tag' (string) describing the tile, and a 'box' array [ymin, xmin, ymax, xmax] representing the relative bounding box coordinates (values between 0 and 1000, consistent with Gemini 2D spatial coordinates). For example: [{\"tag\": \"blue mosaic tile\", \"box\": [100, 200, 900, 800]}]. If you cannot detect any distinct tiles, return an empty array []. Do not include any other text or markdown formatting outside the JSON array.";
+
+        $response = $client->post($url, [
+            'json' => [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => $prompt],
+                            ['inlineData' => ['mimeType' => $mimeType, 'data' => $imageBase64]]
+                        ]
+                    ]
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.1
+                ],
+                'safetySettings' => [
+                    ['category' => 'HARM_CATEGORY_HARASSMENT', 'threshold' => 'BLOCK_NONE'],
+                    ['category' => 'HARM_CATEGORY_HATE_SPEECH', 'threshold' => 'BLOCK_NONE'],
+                    ['category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold' => 'BLOCK_NONE'],
+                    ['category' => 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold' => 'BLOCK_NONE']
+                ]
+            ],
+            'headers' => ['Content-Type' => 'application/json']
+        ]);
+
+        $data = json_decode($response->getBody()->getContents(), true);
+        $text = '[]';
+        if (!empty($data['candidates'][0]['content']['parts'][0]['text'])) {
+            $text = $data['candidates'][0]['content']['parts'][0]['text'];
+        }
+        
+        // Clean markdown if present
+        $text = preg_replace('/```json\s*/', '', $text);
+        $text = preg_replace('/```\s*/', '', $text);
+        $text = trim($text);
+        
+        $decoded = json_decode($text, true);
+        return is_array($decoded) ? $decoded : [];
     }
 
     public function getSearchIntent(string $query): string
@@ -115,9 +221,18 @@ class LlmService
 
         $geminiMessages = [];
         foreach ($messages as $msg) {
+            $parts = [['text' => $msg['content']]];
+            if (!empty($msg['image'])) {
+                $parts[] = [
+                    'inlineData' => [
+                        'mimeType' => $msg['mimeType'] ?? 'image/jpeg',
+                        'data' => $msg['image']
+                    ]
+                ];
+            }
             $geminiMessages[] = [
                 'role' => $msg['role'] === 'assistant' ? 'model' : 'user',
-                'parts' => [['text' => $msg['content']]]
+                'parts' => $parts
             ];
         }
 

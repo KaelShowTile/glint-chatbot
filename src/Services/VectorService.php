@@ -52,6 +52,13 @@ class VectorService {
                         'vectors' => [
                             'size' => 768,
                             'distance' => 'Cosine'
+                        ],
+                        'sparse_vectors' => [
+                            'text_sparse' => [
+                                'index' => [
+                                    'on_disk' => true
+                                ]
+                            ]
                         ]
                     ]
                 ]);
@@ -61,17 +68,35 @@ class VectorService {
         }
     }
 
-    public function upsert(string $id, array $vector, array $payload) {
+    public function resetCollection() {
         if (!$this->isConfigured) return;
+        try {
+            $this->client->delete("collections/{$this->collectionName}");
+        } catch (\Exception $e) {
+            // Ignore if it doesn't exist
+        }
+        $this->ensureCollectionExists();
+    }
+
+    public function upsert(string $id, array $vector, array $payload, array $sparseVector = []) {
+        if (!$this->isConfigured) return;
+        
+        $point = [
+            'id' => $id,
+            'vector' => $vector,
+            'payload' => $payload
+        ];
+        
+        if (!empty($sparseVector)) {
+            $point['vector'] = [
+                '' => $vector, // Default dense vector
+                'text_sparse' => $sparseVector
+            ];
+        }
+        
         $this->client->put("collections/{$this->collectionName}/points", [
             'json' => [
-                'points' => [
-                    [
-                        'id' => $id,
-                        'vector' => $vector,
-                        'payload' => $payload
-                    ]
-                ]
+                'points' => [$point]
             ]
         ]);
     }
@@ -85,18 +110,59 @@ class VectorService {
         ]);
     }
 
-    public function search(array $vector, int $limit = 5): array {
+    public function getPoint(string $id): ?array {
+        if (!$this->isConfigured) return null;
+        try {
+            $response = $this->client->get("collections/{$this->collectionName}/points/{$id}");
+            $data = json_decode($response->getBody()->getContents(), true);
+            if (!empty($data['result'])) {
+                return $data['result'];
+            }
+        } catch (\Exception $e) {
+            // Point not found
+        }
+        return null;
+    }
+
+    public function search(array $vector, array $sparseVector = [], int $limit = 5): array {
         if (!$this->isConfigured) return [];
         try {
-            $response = $this->client->post("collections/{$this->collectionName}/points/search", [
-                'json' => [
-                    'vector' => $vector,
-                    'limit' => $limit,
-                    'with_payload' => true
-                ]
-            ]);
+            if (empty($sparseVector)) {
+                // Fallback to dense only search if no sparse vector
+                $response = $this->client->post("collections/{$this->collectionName}/points/search", [
+                    'json' => [
+                        'vector' => $vector,
+                        'limit' => $limit,
+                        'with_payload' => true
+                    ]
+                ]);
+            } else {
+                // Hybrid Search using RRF (Qdrant 1.10+)
+                $response = $this->client->post("collections/{$this->collectionName}/points/query", [
+                    'json' => [
+                        'prefetch' => [
+                            [
+                                'query' => $vector,
+                                'limit' => $limit * 2 // Fetch more for better fusion
+                            ],
+                            [
+                                'query' => $sparseVector,
+                                'using' => 'text_sparse',
+                                'limit' => $limit * 2
+                            ]
+                        ],
+                        'query' => [
+                            'fusion' => 'rrf'
+                        ],
+                        'limit' => $limit,
+                        'with_payload' => true
+                    ]
+                ]);
+            }
             
             $data = json_decode($response->getBody()->getContents(), true);
+            // The query API returns results in 'points', not 'result' if we use /points/search, wait.
+            // For POST /points/query, it returns {"result": [ { "id":..., "score":..., "payload":... } ] }
             return $data['result'] ?? [];
         } catch (\Exception $e) {
             error_log("Qdrant Search Error: " . $e->getMessage());

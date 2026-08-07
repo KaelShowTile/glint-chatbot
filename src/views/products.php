@@ -115,6 +115,7 @@ async function startSync() {
                 <tr>
                     <th class="py-2 px-4 border-b text-left">SKU</th>
                     <th class="py-2 px-4 border-b text-left">Product ID</th>
+                    <th class="py-2 px-4 border-b text-left">Images</th>
                     <th class="py-2 px-4 border-b text-left">Last Updated</th>
                     <th class="py-2 px-4 border-b text-left">Qdrant ID</th>
                 </tr>
@@ -124,6 +125,40 @@ async function startSync() {
                 <tr>
                     <td class="py-2 px-4 border-b text-sm"><?php echo htmlspecialchars($p['sku']); ?></td>
                     <td class="py-2 px-4 border-b text-sm"><?php echo htmlspecialchars($p['product_id']); ?></td>
+                    <td class="py-2 px-4 border-b text-sm">
+                        <?php 
+                            $images = [];
+                            if (!empty($p['available_images'])) {
+                                $images = json_decode($p['available_images'], true);
+                            }
+                            if (empty($images) && !empty($p['image_url'])) {
+                                $images = [$p['image_url']];
+                            }
+                        ?>
+                        <?php if(!empty($images)): ?>
+                            <div class="flex flex-wrap gap-2">
+                                <?php foreach($images as $img): ?>
+                                    <label class="cursor-pointer border-2 rounded p-1 <?php echo ($p['image_url'] === $img) ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-gray-300'; ?>">
+                                        <input type="radio" name="image_<?php echo $p['id']; ?>" value="<?php echo htmlspecialchars($img); ?>" <?php echo ($p['image_url'] === $img) ? 'checked' : ''; ?> onchange="setImage('<?php echo $p['product_id']; ?>', this.value)" class="hidden" />
+                                        <?php 
+                                            $thumbUrl = $img;
+                                            $parsedUrl = parse_url($img);
+                                            if (isset($parsedUrl['path'])) {
+                                                $pathInfo = pathinfo($parsedUrl['path']);
+                                                if (isset($pathInfo['extension'])) {
+                                                    $ext = $pathInfo['extension'];
+                                                    $thumbUrl = preg_replace('/\.(' . preg_quote($ext, '/') . ')(\?.*)?$/i', '-80x80.$1$2', $img);
+                                                }
+                                            }
+                                        ?>
+                                        <img src="<?php echo htmlspecialchars($thumbUrl); ?>" alt="Product Image" class="w-12 h-12 object-cover rounded" />
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <span class="text-gray-400 italic">No images</span>
+                        <?php endif; ?>
+                    </td>
                     <td class="py-2 px-4 border-b text-sm"><?php echo htmlspecialchars($p['updated_at']); ?></td>
                     <td class="py-2 px-4 border-b text-sm text-gray-500 font-mono text-xs"><?php echo htmlspecialchars($p['qdrant_id']); ?></td>
                 </tr>
@@ -137,3 +172,27 @@ async function startSync() {
         </table>
     </div>
 </div>
+<script>
+async function setImage(productId, imageUrl) {
+    try {
+        const formData = new FormData();
+        formData.append('product_id', productId);
+        formData.append('image_url', imageUrl);
+        
+        let res = await fetch('<?php echo BASE_URL; ?>/admin/products/set-image', { 
+            method: 'POST',
+            body: formData
+        });
+        
+        let data = await res.json();
+        if (data.success) {
+            // Option to show a toast or just reload
+            location.reload();
+        } else {
+            alert('Failed to update image: ' + (data.error || 'Unknown error'));
+        }
+    } catch(err) {
+        alert('Error updating image: ' + err.message);
+    }
+}
+</script>

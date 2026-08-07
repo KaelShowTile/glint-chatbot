@@ -12,6 +12,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isContinuousListening, setIsContinuousListening] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState(null); // stores { file, dataUrl, compressedBase64 }
+  const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const micVADRef = useRef(null);
@@ -49,11 +51,8 @@ export default function App() {
         const url = new URL(scriptTag.src);
         defaultApiUrl = url.origin + url.pathname.replace('/widget.js', '/api');
       }
-    } catch (e) { }
-
-    const baseUrl = window.glintChatbotConfig?.apiUrl ? window.glintChatbotConfig.apiUrl.replace('/chat', '') : defaultApiUrl;
-
-    // Fetch config
+    } catch(e) {}
+    const baseUrl = window.glintChatbotConfig?.apiUrl ? window.glintChatbotConfig.apiUrl.replace(/\/chat\/?$/, '') : defaultApiUrl;    // Fetch config
     fetch(`${baseUrl}/widget/config`)
       .then(res => res.json())
       .then(data => {
@@ -115,12 +114,93 @@ export default function App() {
 
   const toggleOpen = () => setIsOpen(!isOpen);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    const userMessage = { id: Date.now(), type: 'user', text: input.trim() };
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxSize = 800;
+
+        if (width > maxSize || height > maxSize) {
+          const ratio = Math.min(maxSize / width, maxSize / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+        setUploadedImage({ file, dataUrl, compressedBase64 });
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = null; 
+  };
+
+  const performVisualSearch = async (apiUrl, chatHistory, userMessage, base64Image, cropBox = null) => {
+    let finalImage = base64Image;
+    if (cropBox) {
+      finalImage = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const [ymin, xmin, ymax, xmax] = cropBox;
+          const sx = (xmin / 1000) * img.width;
+          const sy = (ymin / 1000) * img.height;
+          const sw = ((xmax - xmin) / 1000) * img.width;
+          const sh = ((ymax - ymin) / 1000) * img.height;
+          
+          canvas.width = sw;
+          canvas.height = sh;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        };
+        img.src = base64Image;
+      });
+    }
+
+    const payload = { messages: chatHistory, session_id: sessionId, image: finalImage };
+    const vsApiUrl = apiUrl.replace(/\/chat\/?$/, '/chat/visual-search');
+
+    const response = await fetch(vsApiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return response;
+  };
+
+  const handleSend = async () => {
+    if ((!input.trim() && !uploadedImage) || isLoading) return;
+
+    const userText = input.trim();
+    let htmlContent = userText;
+    if (uploadedImage) {
+        htmlContent = `<div style="margin-bottom: 8px;"><img src="${uploadedImage.dataUrl}" style="max-width: 150px; border-radius: 4px;"/></div>` + htmlContent;
+    }
+
+    const userMessage = { id: Date.now(), type: 'user', text: userText, html: htmlContent };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    const imageToSend = uploadedImage ? uploadedImage.compressedBase64 : null;
+    const dataUrlToRender = uploadedImage ? uploadedImage.dataUrl : null;
+    setUploadedImage(null);
     setIsLoading(true);
 
     try {
@@ -133,7 +213,6 @@ export default function App() {
         }
       } catch (e) { }
 
-      // In production, this would point to the absolute URL of the backend API
       const apiUrl = window.glintChatbotConfig?.apiUrl || defaultApiUrl;
       const chatHistory = messages
         .filter(m => m.type !== 'system' && m.type !== 'bot_custom' && !!m.text)
@@ -144,13 +223,111 @@ export default function App() {
 
       chatHistory.push({ role: 'user', content: userMessage.text });
 
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ messages: chatHistory, session_id: sessionId })
-      });
+      let response;
+
+      if (imageToSend) {
+        // Step 1: Detect Image
+        const detectUrl = apiUrl.replace(/\/chat\/?$/, '/chat/detect-image');
+        const detectRes = await fetch(detectUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: imageToSend })
+        });
+        
+        if (detectRes.ok) {
+          const detectData = await detectRes.json();
+          const boxes = detectData.boxes || [];
+          
+          if (boxes.length === 1) {
+            // Auto crop and search
+            response = await performVisualSearch(apiUrl, chatHistory, userMessage, imageToSend, boxes[0].box);
+          } else if (boxes.length > 1) {
+            // Multiple objects detected, ask user
+            setIsLoading(false);
+            
+            // Generate interactive HTML for bounding boxes
+            let boxesHtml = `<div style="position:relative; display:inline-block; max-width:100%;">
+              <img src="${dataUrlToRender}" style="width:100%; display:block; border-radius:4px;" id="detect-img-${userMessage.id}" />`;
+            
+            boxes.forEach((b, idx) => {
+              const [ymin, xmin, ymax, xmax] = b.box;
+              const top = (ymin / 1000) * 100;
+              const left = (xmin / 1000) * 100;
+              const height = ((ymax - ymin) / 1000) * 100;
+              const width = ((xmax - xmin) / 1000) * 100;
+              
+              boxesHtml += `<div class="glint-bounding-box" data-idx="${idx}" style="position:absolute; top:${top}%; left:${left}%; width:${width}%; height:${height}%; border: 2px solid #007bff; background: rgba(0,123,255,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; text-shadow: 1px 1px 2px black;">${b.tag}</div>`;
+            });
+            boxesHtml += `</div><p style="margin-top:8px; font-size:14px;">I found multiple items. Please click on the one you want to search for!</p>`;
+            
+            const customMsg = { id: Date.now() + 1, type: 'bot_custom', html: boxesHtml };
+            setMessages(prev => [...prev, customMsg]);
+            
+            // Attach event listeners after render
+            setTimeout(() => {
+              const boxEls = document.querySelectorAll('.glint-bounding-box');
+              boxEls.forEach(el => {
+                el.onclick = async () => {
+                  const idx = parseInt(el.getAttribute('data-idx'));
+                  const selectedBox = boxes[idx].box;
+                  // Remove interactivity
+                  boxEls.forEach(b => { b.style.pointerEvents = 'none'; b.style.border = '2px solid #ccc'; b.style.background = 'transparent'; });
+                  el.style.border = '3px solid #28a745';
+                  el.style.background = 'rgba(40,167,69,0.3)';
+                  
+                  setIsLoading(true);
+                  try {
+                    const res = await performVisualSearch(apiUrl, chatHistory, userMessage, imageToSend, selectedBox);
+                    const data = await res.json();
+                    setMessages(prev => [...prev, { id: Date.now() + 2, type: 'bot', text: data.reply }]);
+                    
+                    if (data.execute_js) {
+                      try {
+                        const widgetObj = {
+                          websiteUrl: config.website_url || '',
+                          addMessage: (htmlContent) => {
+                            const customMsg = { id: Date.now() + Math.random(), type: 'bot_custom', html: htmlContent };
+                            setMessages(prev => [...prev, customMsg]);
+                            fetch(`${apiUrl}/log`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ session_id: sessionId, type: 'bot_custom', html: htmlContent })
+                            }).catch(err => console.error("Error logging fallback:", err));
+                          }
+                        };
+                        const dynamicFunction = new Function('args', 'widget', data.execute_js);
+                        dynamicFunction(data.execute_args || {}, widgetObj);
+                      } catch (e) {
+                        console.error("Error executing JS:", e);
+                      }
+                    }
+                  } catch (e) {
+                     setMessages(prev => [...prev, { id: Date.now() + 2, type: 'system', text: 'Search failed.' }]);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                };
+              });
+            }, 100);
+            
+            return; // Halt standard flow
+          } else {
+            // 0 boxes detected, just do normal visual search on whole image
+            response = await performVisualSearch(apiUrl, chatHistory, userMessage, imageToSend, null);
+          }
+        } else {
+          // Fallback to normal visual search if detection fails
+          response = await performVisualSearch(apiUrl, chatHistory, userMessage, imageToSend, null);
+        }
+      } else {
+        // Text-only chat
+        const payload = { messages: chatHistory, session_id: sessionId };
+        response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
 
       if (!response.ok) {
         if (response.status === 0 || response.type === 'error') {
@@ -492,7 +669,11 @@ export default function App() {
                         dangerouslySetInnerHTML={{ __html: msg.html }}
                       />
                     ) : (
-                      msg.text
+                      msg.html ? (
+                        <div dangerouslySetInnerHTML={{ __html: msg.html }} />
+                      ) : (
+                        msg.text
+                      )
                     )}
                   </div>
                 </div>
@@ -535,27 +716,54 @@ export default function App() {
 
           <div className="glint-chatbot-input-area">
             {activeTab === 'text' ? (
-              <>
-                <input
-                  type="text"
-                  className="glint-chatbot-input"
-                  placeholder="Type your message..."
-                  value={input}
-                  onInput={e => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={isLoading}
-                />
-                <button
-                  className="glint-chatbot-send"
-                  onClick={handleSend}
-                  disabled={isLoading || !input.trim()}
-                  aria-label="Send Message"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M2.01 21L23 12L2.01 3L2 10l15 2-15 2z" fill="currentColor" />
-                  </svg>
-                </button>
-              </>
+              <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                {uploadedImage && (
+                  <div className="glint-image-preview-container" style={{ position: 'relative', marginBottom: '8px', width: 'fit-content' }}>
+                    <img src={uploadedImage.dataUrl} alt="Preview" style={{ height: '60px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                    <button 
+                      onClick={() => setUploadedImage(null)}
+                      style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      &times;
+                    </button>
+                  </div>
+                )}
+                <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '8px' }}>
+                  <button 
+                    className="glint-chatbot-attach" 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading}
+                    title="Upload Image"
+                  >
+                    📎
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                  />
+                  <input
+                    type="text"
+                    className="glint-chatbot-input"
+                    placeholder="Type your message..."
+                    value={input}
+                    onInput={e => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={isLoading}
+                  />
+                  <button
+                    className="glint-chatbot-send"
+                    onClick={handleSend}
+                    disabled={isLoading || (!input.trim() && !uploadedImage)}
+                    aria-label="Send Message"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2.01 21L23 12L2.01 3L2 10l15 2-15 2z" fill="currentColor" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="glint-chatbot-voice-area">
                 {!isContinuousListening ? (

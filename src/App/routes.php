@@ -44,12 +44,15 @@ return function (App $app) {
     $app->post('/admin/products/sync/chunk', \App\Controllers\KnowledgeController::class . ':processSyncChunk');
     $app->post('/admin/products/sync/finalize', \App\Controllers\KnowledgeController::class . ':finalizeSync');
     $app->post('/admin/products/delete-all', \App\Controllers\KnowledgeController::class . ':deleteAllProducts');
+    $app->post('/admin/products/set-image', \App\Controllers\KnowledgeController::class . ':setProductImage');
 
     $app->get('/admin/agent-functions', \App\Controllers\AgentFunctionController::class . ':index');
     $app->post('/admin/agent-functions', \App\Controllers\AgentFunctionController::class . ':create');
     $app->delete('/admin/agent-functions/{id}', \App\Controllers\AgentFunctionController::class . ':delete');
 
     $app->post('/api/chat', \App\Controllers\ChatController::class . ':handleChat');
+    $app->post('/api/chat/detect-image', \App\Controllers\ChatController::class . ':detectImage');
+    $app->post('/api/chat/visual-search', \App\Controllers\ChatController::class . ':visualSearch');
     $app->post('/api/chat/log', \App\Controllers\ChatController::class . ':handleLogFallback');
     $app->get('/api/chat/history', \App\Controllers\WidgetController::class . ':getHistory');
     $app->get('/api/widget/config', \App\Controllers\WidgetController::class . ':getConfig');

@@ -53,7 +53,7 @@ class SettingsController {
         $db = Database::getConnection();
         
         $keysToUpdate = [
-            'llm_provider', 'llm_model_name', 'embedding_model_name', 'groq_api_key', 'gemini_api_key', 
+            'llm_provider', 'llm_model_name', 'vision_model_name', 'embedding_model_name', 'groq_api_key', 'gemini_api_key', 
             'qdrant_url', 'qdrant_api_key', 'admin_email', 
             'escalation_message', 'wp_path', 'product_feed_url',
             'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_encryption',

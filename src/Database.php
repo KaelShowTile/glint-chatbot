@@ -44,6 +44,8 @@ class Database {
                 sku TEXT,
                 hash TEXT NOT NULL,
                 qdrant_id TEXT,
+                image_url TEXT,
+                available_images TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
@@ -100,6 +102,18 @@ class Database {
 
         try {
             $pdo->exec("ALTER TABLE chat_sessions ADD COLUMN customer_contact_number TEXT");
+        } catch (\PDOException $e) {
+            // Column might already exist
+        }
+
+        try {
+            $pdo->exec("ALTER TABLE products ADD COLUMN image_url TEXT");
+        } catch (\PDOException $e) {
+            // Column might already exist
+        }
+
+        try {
+            $pdo->exec("ALTER TABLE products ADD COLUMN available_images TEXT");
         } catch (\PDOException $e) {
             // Column might already exist
         }

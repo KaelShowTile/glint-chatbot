@@ -28,7 +28,7 @@ class CronMiddleware implements MiddlewareInterface {
                 $stmt->execute([$newNextRun]);
                 
                 // Run sync in shutdown function to not block the current response completely
-                register_shutdown_function(['\App\Services\SyncService', 'syncProducts']);
+                register_shutdown_function(['\App\Services\SyncService', 'syncAll']);
             }
         } catch (\Exception $e) {
             // Ignore DB errors during cron check to not break the app

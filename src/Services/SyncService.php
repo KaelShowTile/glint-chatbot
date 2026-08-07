@@ -6,6 +6,25 @@ use GuzzleHttp\Client;
 
 class SyncService
 {
+    public static function syncAll()
+    {
+        try {
+            $prepare = self::prepareSync();
+            if ($prepare['total'] === 0) return;
+            
+            $isSyncing = true;
+            while ($isSyncing) {
+                $result = self::processSyncChunk(15);
+                if ($result['status'] === 'complete') {
+                    $isSyncing = false;
+                }
+            }
+            self::finalizeSync();
+        } catch (\Exception $e) {
+            error_log("Cron sync error: " . $e->getMessage());
+        }
+    }
+
     public static function prepareSync()
     {
         $db = Database::getConnection();
@@ -50,6 +69,24 @@ class SyncService
             $desc = strip_tags((string) ($g->description ?? $item->description));
             $link = (string) ($g->link ?? $item->link);
             $image = (string) ($g->image_link ?? $item->image_link);
+            
+            $available_images = [];
+            if (!empty($image)) {
+                $available_images[] = $image;
+            }
+            if (isset($g->additional_image_link)) {
+                foreach ($g->additional_image_link as $addImg) {
+                    $available_images[] = (string) $addImg;
+                }
+            }
+            if (isset($item->additional_image_link)) {
+                foreach ($item->additional_image_link as $addImg) {
+                    $available_images[] = (string) $addImg;
+                }
+            }
+            // Remove duplicates
+            $available_images = array_values(array_unique($available_images));
+
             $price = (string) ($g->price ?? $item->price ?? '');
             $category = (string) ($g->product_type ?? $g->google_product_category ?? $item->category ?? '');
             $sku = (string) ($g->mpn ?? $item->sku ?? $id);
@@ -125,7 +162,8 @@ class SyncService
                     'price' => $price,
                     'sale_price' => $sale_price,
                     'name' => $title
-                ]
+                ],
+                'available_images' => json_encode($available_images)
             ];
         }
 
@@ -198,19 +236,110 @@ class SyncService
             $id = $p['payload']['product_id'];
 
             try {
-                $vector = $llm->embed($p['search_content']);
+                // Determine image to embed
+                $imageBase64 = null;
+                $mimeType = 'image/jpeg';
+                $coverUrl = $p['payload']['thumbnail_url'] ?? '';
+                if (!empty($coverUrl)) {
+                    $imgData = @file_get_contents($coverUrl);
+                    if ($imgData) {
+                        $im = @imagecreatefromstring($imgData);
+                        if ($im !== false) {
+                            $width = imagesx($im);
+                            $height = imagesy($im);
+                            $maxSize = 512;
+                            if ($width > $maxSize || $height > $maxSize) {
+                                $ratio = min($maxSize / $width, $maxSize / $height);
+                                $newWidth = (int)($width * $ratio);
+                                $newHeight = (int)($height * $ratio);
+                                $newIm = imagecreatetruecolor($newWidth, $newHeight);
+                                imagealphablending($newIm, false);
+                                imagesavealpha($newIm, true);
+                                $transparent = imagecolorallocatealpha($newIm, 255, 255, 255, 127);
+                                imagefilledrectangle($newIm, 0, 0, $newWidth, $newHeight, $transparent);
+                                imagecopyresampled($newIm, $im, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+                                imagedestroy($im);
+                                $im = $newIm;
+                            }
+                            $bg = imagecreatetruecolor(imagesx($im), imagesy($im));
+                            $white = imagecolorallocate($bg, 255, 255, 255);
+                            imagefill($bg, 0, 0, $white);
+                            imagecopy($bg, $im, 0, 0, 0, 0, imagesx($im), imagesy($im));
+                            
+                            ob_start();
+                            imagejpeg($bg, null, 80);
+                            $imageBase64 = base64_encode(ob_get_clean());
+                            imagedestroy($im);
+                            imagedestroy($bg);
+                        }
+                    }
+                }
+
+                $chunks = [];
+                // Chunk 1: Basic info
+                $basicInfo = "Product: {$p['payload']['name']}\nPrice: {$p['payload']['price']}";
+                if (!empty($p['payload']['sale_price'])) $basicInfo .= " (Sale: {$p['payload']['sale_price']})";
+                $chunks[] = $basicInfo;
+                
+                // Chunk 2+: Description paragraphs
+                // In SyncService, the original description is only in search_content. 
+                // Wait, search_content is full text. We can just chunk search_content.
+                $paragraphs = preg_split('/\n+/', $p['search_content']);
+                $currentChunk = "";
+                foreach ($paragraphs as $para) {
+                    $para = trim($para);
+                    if (empty($para)) continue;
+                    if (strlen($currentChunk) + strlen($para) > 500) {
+                        if (!empty($currentChunk)) {
+                            $chunks[] = $currentChunk;
+                        }
+                        $currentChunk = $para;
+                    } else {
+                        $currentChunk .= (empty($currentChunk) ? "" : "\n") . $para;
+                    }
+                }
+                if (!empty($currentChunk)) {
+                    $chunks[] = $currentChunk;
+                }
+                
                 $p['payload']['search_content'] = $p['search_content'];
+                $p['payload']['thumbnail_url'] = $coverUrl; // Ensure it's in payload
+
+                $qdrantIds = [];
+                
+                // If update, delete old Qdrant IDs first
+                if ($p['action'] !== 'insert') {
+                    $oldQdrantId = $p['qdrant_id'] ?? '';
+                    if (!empty($oldQdrantId)) {
+                        $oldIds = json_decode($oldQdrantId, true);
+                        if (is_array($oldIds)) {
+                            foreach ($oldIds as $oid) $vectorService->delete($oid);
+                        } else {
+                            $vectorService->delete($oldQdrantId);
+                        }
+                    }
+                }
+                
+                foreach ($chunks as $idx => $chunk) {
+                    // Only attach image to the first chunk to save tokens
+                    $chunkImageBase64 = ($idx === 0) ? $imageBase64 : null;
+                    
+                    $vector = $llm->embed($chunk, $chunkImageBase64, $mimeType);
+                    $sparseVector = $llm->generateSparseVector($chunk);
+                    
+                    $chunkQdrantId = VectorService::generateUuid();
+                    $vectorService->upsert($chunkQdrantId, $vector, $p['payload'], $sparseVector);
+                    $qdrantIds[] = $chunkQdrantId;
+                }
+                
+                $qdrantIdsJson = json_encode($qdrantIds);
 
                 if ($p['action'] === 'insert') {
-                    $qdrantId = VectorService::generateUuid();
-                    $vectorService->upsert($qdrantId, $vector, $p['payload']);
-                    $stmtInsert = $db->prepare("INSERT INTO products (product_id, sku, hash, qdrant_id) VALUES (?, ?, ?, ?)");
-                    $stmtInsert->execute([$id, $p['sku'], $p['hash'], $qdrantId]);
+                    $stmtInsert = $db->prepare("INSERT INTO products (product_id, sku, hash, qdrant_id, available_images) VALUES (?, ?, ?, ?, ?)");
+                    $stmtInsert->execute([$id, $p['sku'], $p['hash'], $qdrantIdsJson, $p['available_images']]);
                 } else {
-                    $qdrantId = $p['qdrant_id'];
-                    $vectorService->upsert($qdrantId, $vector, $p['payload']);
-                    $stmtUpdate = $db->prepare("UPDATE products SET hash = ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?");
-                    $stmtUpdate->execute([$p['hash'], $id]);
+                    $stmtUpdate = $db->prepare("UPDATE products SET hash = ?, qdrant_id = ?, available_images = ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?");
+                    $stmtUpdate->execute([$p['hash'], $qdrantIdsJson, $p['available_images'], $id]);
                 }
             } catch (\Exception $e) {
                 error_log("Error syncing product $id: " . $e->getMessage());
@@ -225,7 +354,12 @@ class SyncService
 
             try {
                 if (!empty($row['qdrant_id'])) {
-                    $vectorService->delete($row['qdrant_id']);
+                    $ids = json_decode($row['qdrant_id'], true);
+                    if (is_array($ids)) {
+                        foreach ($ids as $oid) $vectorService->delete($oid);
+                    } else {
+                        $vectorService->delete($row['qdrant_id']);
+                    }
                 }
                 $stmtDel = $db->prepare("DELETE FROM products WHERE product_id = ?");
                 $stmtDel->execute([$id]);
