@@ -397,9 +397,19 @@ class LlmService
         $executeJs = $replyData['execute_js'] ?? null;
         $executeArgs = $replyData['execute_args'] ?? null;
         
-        $audioBase64 = null;
+        $audioBase64 = $this->generateAudioBase64($text);
 
-        // 2. Generate Audio using the TTS model
+        return [
+            'text' => $text,
+            'audioBase64' => $audioBase64,
+            'execute_js' => $executeJs,
+            'execute_args' => $executeArgs
+        ];
+    }
+
+    public function generateAudioBase64(string $text): ?string
+    {
+        $audioBase64 = null;
         $apiKey = $this->settings['gemini_api_key'] ?? '';
         $ttsModelName = $this->settings['tts_model_name'] ?? 'gemini-2.5-flash-preview-tts';
         
@@ -431,31 +441,19 @@ class LlmService
                     $byteRate = $sampleRate * $channels * ($bitsPerSample / 8);
                     $blockAlign = $channels * ($bitsPerSample / 8);
 
-                    $header = pack('A4V', 'RIFF', $fileLength);
-                    $header .= pack('A4', 'WAVE');
-                    $header .= pack('A4V', 'fmt ', 16);
-                    $header .= pack('v', 1); // PCM format
-                    $header .= pack('v', $channels);
-                    $header .= pack('V', $sampleRate);
-                    $header .= pack('V', $byteRate);
-                    $header .= pack('v', $blockAlign);
-                    $header .= pack('v', $bitsPerSample);
-                    $header .= pack('A4V', 'data', $dataLength);
-
+                    $header = pack('a4V a4a4V v v V V v v a4V', 
+                        'RIFF', $fileLength, 'WAVE', 'fmt ', 16, 
+                        1, $channels, $sampleRate, $byteRate, 
+                        $blockAlign, $bitsPerSample, 'data', $dataLength
+                    );
                     $wavData = $header . $pcmData;
                     $audioBase64 = base64_encode($wavData);
                 }
             } catch (\Exception $e) {
-                error_log("TTS Error: " . $e->getMessage());
+                error_log("TTS Audio Generation Error: " . $e->getMessage());
             }
         }
-
-        return [
-            'text' => trim($text), 
-            'audioBase64' => $audioBase64, 
-            'execute_js' => $executeJs, 
-            'execute_args' => $executeArgs
-        ];
+        return $audioBase64;
     }
 
     private function chatGroq(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null)

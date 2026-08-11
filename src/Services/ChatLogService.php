@@ -34,6 +34,9 @@ class ChatLogService {
 
         foreach ($newMessages as $msg) {
             $msg['timestamp'] = date('Y-m-d H:i:s');
+            if (isset($msg['is_fake'])) {
+                // Keep the flag in the logged message
+            }
             $messages[] = $msg;
         }
 

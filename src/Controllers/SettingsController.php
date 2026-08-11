@@ -58,7 +58,7 @@ class SettingsController {
             'escalation_message', 'wp_path', 'product_feed_url',
             'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_encryption',
             'custom_prompt', 'chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links',
-            'tts_provider', 'tts_model_name', 'website_url', 'app_url', 'toggle_icon_html'
+            'tts_provider', 'tts_model_name', 'website_url', 'app_url', 'toggle_icon_html', 'upload_icon_html'
         ];
 
         try {
@@ -75,12 +75,14 @@ class SettingsController {
                 }
             }
 
-            // Checkboxes
-            $enableWp = isset($data['enable_wp_login']) ? '1' : '0';
-            $stmt->execute(['enable_wp_login', $enableWp]);
-            
-            $enableEscalateEmail = isset($data['enable_escalate_email']) ? '1' : '0';
-            $stmt->execute(['enable_escalate_email', $enableEscalateEmail]);
+            // Checkboxes (only process if submitting general settings)
+            if (isset($data['website_url'])) {
+                $enableWp = isset($data['enable_wp_login']) ? '1' : '0';
+                $stmt->execute(['enable_wp_login', $enableWp]);
+                
+                $enableEscalateEmail = isset($data['enable_escalate_email']) ? '1' : '0';
+                $stmt->execute(['enable_escalate_email', $enableEscalateEmail]);
+            }
 
             $db->commit();
             $_SESSION['success'] = 'Settings saved successfully.';
@@ -101,7 +103,7 @@ class SettingsController {
         if (!isset($_SESSION['user'])) return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         
         $db = Database::getConnection();
-        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links', 'toggle_icon_html')");
+        $stmt = $db->query("SELECT key, value FROM settings WHERE key IN ('chatbot_header', 'chatbot_name', 'chatbot_avatar_url', 'chatbot_greeting', 'quick_links', 'toggle_icon_html', 'upload_icon_html')");
         $settings = [];
         while ($row = $stmt->fetch()) {
             $settings[$row['key']] = $row['value'];

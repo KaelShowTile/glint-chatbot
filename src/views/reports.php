@@ -22,28 +22,65 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
     <!-- Chart 1: Daily Sessions -->
-    <div class="bg-white p-6 rounded-lg shadow-md">
+    <div class="bg-white p-6 rounded-lg shadow-md flex flex-col">
         <h2 class="text-xl font-semibold mb-4 text-gray-800">Daily Chat Sessions</h2>
-        <div class="relative h-64">
+        <div class="relative h-64 mb-4">
             <canvas id="sessionsChart"></canvas>
         </div>
+        <table class="w-full text-sm text-left text-gray-500 mt-auto border-t">
+            <tfoot>
+                <tr class="font-bold text-gray-900 bg-gray-50">
+                    <td class="px-4 py-3">Total Sessions (Selected Period)</td>
+                    <td class="px-4 py-3 text-right"><?php echo $totalSessions; ?></td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
 
     <!-- Chart 2: Daily Average Messages -->
-    <div class="bg-white p-6 rounded-lg shadow-md">
+    <div class="bg-white p-6 rounded-lg shadow-md flex flex-col">
         <h2 class="text-xl font-semibold mb-4 text-gray-800">Average Messages per Session</h2>
-        <div class="relative h-64">
+        <div class="relative h-64 mb-4">
             <canvas id="messagesChart"></canvas>
         </div>
+        <table class="w-full text-sm text-left text-gray-500 mt-auto border-t">
+            <tfoot>
+                <tr class="font-bold text-gray-900 bg-gray-50">
+                    <td class="px-4 py-3">True Average (Selected Period)</td>
+                    <td class="px-4 py-3 text-right"><?php echo $avgMessages; ?> messages/session</td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
 </div>
 
 <!-- Chart 3: Agent Functions -->
-<div class="bg-white p-6 rounded-lg shadow-md mb-8">
+<div class="bg-white p-6 rounded-lg shadow-md mb-8 flex flex-col">
     <h2 class="text-xl font-semibold mb-4 text-gray-800">Agent Function Calls</h2>
-    <div class="relative h-80">
+    <div class="relative h-80 mb-4">
         <canvas id="functionsChart"></canvas>
     </div>
+    <table class="w-full text-sm text-left text-gray-500 mt-auto border-t">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-50 hidden md:table-header-group">
+            <tr>
+                <th scope="col" class="px-4 py-3">Function Name</th>
+                <th scope="col" class="px-4 py-3 text-right">Total Calls</th>
+            </tr>
+        </thead>
+        <tfoot>
+            <?php foreach ($totalFunctionLogs as $fnName => $count): ?>
+            <tr class="font-bold text-gray-900 bg-gray-50 border-b last:border-0">
+                <td class="px-4 py-3">Total <?php echo htmlspecialchars($fnName); ?></td>
+                <td class="px-4 py-3 text-right"><?php echo $count; ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <?php if (empty($totalFunctionLogs)): ?>
+            <tr class="font-bold text-gray-900 bg-gray-50">
+                <td class="px-4 py-3" colspan="2">No function calls in this period.</td>
+            </tr>
+            <?php endif; ?>
+        </tfoot>
+    </table>
 </div>
 
 <!-- Load Chart.js -->
@@ -85,7 +122,7 @@
 
     // Process Function Logs Data
     // We need a dataset for each unique function
-    const uniqueFunctions = [...new Set(functionLogsData.map(item => item.function_name))];
+    const uniqueFunctions = <?php echo json_encode(array_values($allFuncNames)); ?>;
     const functionsColors = [
         'rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)',
         'rgba(255, 206, 86, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)'

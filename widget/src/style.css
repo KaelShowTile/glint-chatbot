@@ -181,6 +181,20 @@
   background: #232f3d;
 }
 
+.glint-image-preview-container {
+  margin: 10px 10px 1px;
+}
+
+.glint-image-preview-container img {
+  max-height: 40px;
+  margin: 0;
+}
+
+.glint-text-chat-input {
+  background: #f1f5f9;
+  border-radius: 12px;
+}
+
 #top input[type=text].glint-chatbot-input {
   background: #f1f5f9;
   border-radius: 7px;
@@ -188,6 +202,10 @@
   border-width: 0;
   font-size: 0.8rem;
   padding: 8px 12px;
+}
+
+#top input[type=text].glint-chatbot-input:focus {
+  box-shadow: none;
 }
 
 .glint-quick-links {
@@ -248,8 +266,7 @@
 }
 
 .glint-chatbot-send {
-  background: #232f3d;
-  color: #fff;
+  color: #232f3d;
   border: none;
   border-radius: 50%;
   width: 32px;
@@ -270,7 +287,14 @@
   flex: 1;
   display: flex;
   justify-content: center;
-  align-items: center
+  align-items: center;
+}
+
+.glint-chatbot-attach {
+  border-width: 0;
+  background: transparent;
+  margin-left: 9px;
+  padding: 5px 0;
 }
 
 .glint-voice-btn {
@@ -288,8 +312,8 @@
   -webkit-user-select: none
 }
 
-.glint-voice-btn:hover:not(:disabled) {
-  background: #e2e8f0
+.glint-voice-idle-text {
+  margin-left: -17px;
 }
 
 .glint-voice-btn.recording {

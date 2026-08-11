@@ -51,7 +51,7 @@ export default function App() {
         const url = new URL(scriptTag.src);
         defaultApiUrl = url.origin + url.pathname.replace('/widget.js', '/api');
       }
-    } catch(e) {}
+    } catch (e) { }
     const baseUrl = window.glintChatbotConfig?.apiUrl ? window.glintChatbotConfig.apiUrl.replace(/\/chat\/?$/, '') : defaultApiUrl;    // Fetch config
     fetch(`${baseUrl}/widget/config`)
       .then(res => res.json())
@@ -121,7 +121,7 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target.result;
-      
+
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -138,7 +138,7 @@ export default function App() {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        
+
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
@@ -149,7 +149,7 @@ export default function App() {
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
-    e.target.value = null; 
+    e.target.value = null;
   };
 
   const performVisualSearch = async (apiUrl, chatHistory, userMessage, base64Image, cropBox = null) => {
@@ -164,7 +164,7 @@ export default function App() {
           const sy = (ymin / 1000) * img.height;
           const sw = ((xmax - xmin) / 1000) * img.width;
           const sh = ((ymax - ymin) / 1000) * img.height;
-          
+
           canvas.width = sw;
           canvas.height = sh;
           const ctx = canvas.getContext('2d');
@@ -192,7 +192,7 @@ export default function App() {
     const userText = input.trim();
     let htmlContent = userText;
     if (uploadedImage) {
-        htmlContent = `<div style="margin-bottom: 8px;"><img src="${uploadedImage.dataUrl}" style="max-width: 150px; border-radius: 4px;"/></div>` + htmlContent;
+      htmlContent = `<div style="margin-bottom: 8px;"><img src="${uploadedImage.dataUrl}" style="max-width: 150px; border-radius: 4px;"/></div>` + htmlContent;
     }
 
     const userMessage = { id: Date.now(), type: 'user', text: userText, html: htmlContent };
@@ -233,36 +233,36 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: imageToSend })
         });
-        
+
         if (detectRes.ok) {
           const detectData = await detectRes.json();
           const boxes = detectData.boxes || [];
-          
+
           if (boxes.length === 1) {
             // Auto crop and search
             response = await performVisualSearch(apiUrl, chatHistory, userMessage, imageToSend, boxes[0].box);
           } else if (boxes.length > 1) {
             // Multiple objects detected, ask user
             setIsLoading(false);
-            
+
             // Generate interactive HTML for bounding boxes
             let boxesHtml = `<div style="position:relative; display:inline-block; max-width:100%;">
               <img src="${dataUrlToRender}" style="width:100%; display:block; border-radius:4px;" id="detect-img-${userMessage.id}" />`;
-            
+
             boxes.forEach((b, idx) => {
               const [ymin, xmin, ymax, xmax] = b.box;
               const top = (ymin / 1000) * 100;
               const left = (xmin / 1000) * 100;
               const height = ((ymax - ymin) / 1000) * 100;
               const width = ((xmax - xmin) / 1000) * 100;
-              
+
               boxesHtml += `<div class="glint-bounding-box" data-idx="${idx}" style="position:absolute; top:${top}%; left:${left}%; width:${width}%; height:${height}%; border: 2px solid #007bff; background: rgba(0,123,255,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; text-shadow: 1px 1px 2px black;">${b.tag}</div>`;
             });
             boxesHtml += `</div><p style="margin-top:8px; font-size:14px;">I found multiple items. Please click on the one you want to search for!</p>`;
-            
+
             const customMsg = { id: Date.now() + 1, type: 'bot_custom', html: boxesHtml };
             setMessages(prev => [...prev, customMsg]);
-            
+
             // Attach event listeners after render
             setTimeout(() => {
               const boxEls = document.querySelectorAll('.glint-bounding-box');
@@ -274,13 +274,13 @@ export default function App() {
                   boxEls.forEach(b => { b.style.pointerEvents = 'none'; b.style.border = '2px solid #ccc'; b.style.background = 'transparent'; });
                   el.style.border = '3px solid #28a745';
                   el.style.background = 'rgba(40,167,69,0.3)';
-                  
+
                   setIsLoading(true);
                   try {
                     const res = await performVisualSearch(apiUrl, chatHistory, userMessage, imageToSend, selectedBox);
                     const data = await res.json();
                     setMessages(prev => [...prev, { id: Date.now() + 2, type: 'bot', text: data.reply }]);
-                    
+
                     if (data.execute_js) {
                       try {
                         const widgetObj = {
@@ -302,14 +302,14 @@ export default function App() {
                       }
                     }
                   } catch (e) {
-                     setMessages(prev => [...prev, { id: Date.now() + 2, type: 'system', text: 'Search failed.' }]);
+                    setMessages(prev => [...prev, { id: Date.now() + 2, type: 'system', text: 'Search failed.' }]);
                   } finally {
                     setIsLoading(false);
                   }
                 };
               });
             }, 100);
-            
+
             return; // Halt standard flow
           } else {
             // 0 boxes detected, just do normal visual search on whole image
@@ -471,6 +471,10 @@ export default function App() {
       formData.append('session_id', sessionId);
       formData.append('audio', audioBlob, 'recording.wav');
 
+      if (uploadedImage) {
+        formData.append('image', uploadedImage.dataUrl);
+      }
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
@@ -490,6 +494,11 @@ export default function App() {
 
       const botMessage = { id: Date.now() + 1, type: 'bot', text: data.reply };
       setMessages(prev => [...prev, botMessage]);
+
+      if (data.abort_voice) {
+        stopConversation();
+        setMessages(prev => [...prev, { id: Date.now() + 2, type: 'system', text: 'Voice conversation aborted due to continuous background interference.' }]);
+      }
 
       if (data.audio) {
         const audioUrl = `data:audio/wav;base64,${data.audio}`;
@@ -715,34 +724,33 @@ export default function App() {
           )}
 
           <div className="glint-chatbot-input-area">
-            {activeTab === 'text' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                {uploadedImage && (
-                  <div className="glint-image-preview-container" style={{ position: 'relative', marginBottom: '8px', width: 'fit-content' }}>
-                    <img src={uploadedImage.dataUrl} alt="Preview" style={{ height: '60px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                    <button 
-                      onClick={() => setUploadedImage(null)}
-                      style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      &times;
-                    </button>
-                  </div>
-                )}
+            <div className="glint-text-chat-input" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+              {uploadedImage && (
+                <div className="glint-image-preview-container" style={{ position: 'relative', width: 'fit-content' }}>
+                  <img src={uploadedImage.dataUrl} alt="Preview" style={{ height: '60px', borderRadius: '4px', border: '1px solid #ccc' }} />
+                  <button
+                    onClick={() => setUploadedImage(null)}
+                    style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    &times;
+                  </button>
+                </div>
+              )}
+              <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleFileSelect} />
+              {activeTab === 'text' ? (
                 <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '8px' }}>
-                  <button 
-                    className="glint-chatbot-attach" 
+                  <button
+                    className="glint-chatbot-attach"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
                     title="Upload Image"
                   >
-                    📎
+                    {config.upload_icon_html ? (
+                      <span dangerouslySetInnerHTML={{ __html: config.upload_icon_html }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px' }} />
+                    ) : (
+                      '📎'
+                    )}
                   </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    style={{ display: 'none' }}
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                  />
+
                   <input
                     type="text"
                     className="glint-chatbot-input"
@@ -763,31 +771,43 @@ export default function App() {
                     </svg>
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="glint-chatbot-voice-area">
-                {!isContinuousListening ? (
+              ) : (
+                <div className="glint-chatbot-voice-area" style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
                   <button
-                    key="start-btn"
-                    className="glint-voice-btn"
-                    onClick={startConversation}
+                    className="glint-chatbot-attach"
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
+                    title="Upload Image"
                   >
-                    <span className="glint-voice-idle-text">▶️ Tap to Start Conversation</span>
+                    {config.upload_icon_html ? (
+                      <span dangerouslySetInnerHTML={{ __html: config.upload_icon_html }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px' }} />
+                    ) : (
+                      '📎'
+                    )}
                   </button>
-                ) : (
-                  <button
-                    key="stop-btn"
-                    className={`glint-voice-btn ${!isLoading ? 'recording' : ''}`}
-                    onClick={stopConversation}
-                  >
-                    <span className="glint-voice-recording-text">
-                      ⏹ {!isLoading ? 'Listening for your voice...' : 'Answering...'}
-                    </span>
-                  </button>
-                )}
-              </div>
-            )}
+                  {!isContinuousListening ? (
+                    <button
+                      key="start-btn"
+                      className="glint-voice-btn"
+                      onClick={startConversation}
+                      disabled={isLoading}
+                    >
+                      <span className="glint-voice-idle-text">Tap to Start Conversation</span>
+                    </button>
+                  ) : (
+                    <button
+                      key="stop-btn"
+                      className={`glint-voice-btn ${!isLoading ? 'recording' : ''}`}
+                      onClick={stopConversation}
+                    >
+                      <span className="glint-voice-recording-text">
+                        ⏹ {!isLoading ? 'Listening for your voice...' : 'Answering...'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

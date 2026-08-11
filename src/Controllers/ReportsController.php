@@ -5,29 +5,32 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use App\Database;
 
-class ReportsController {
-    
-    private function render(Response $response, string $template, array $data = []): Response {
+class ReportsController
+{
+
+    private function render(Response $response, string $template, array $data = []): Response
+    {
         extract($data);
         ob_start();
         include __DIR__ . "/../views/{$template}.php";
         $content = ob_get_clean();
-        
+
         ob_start();
         include __DIR__ . "/../views/layout.php";
         $html = ob_get_clean();
-        
+
         $response->getBody()->write($html);
         return $response;
     }
 
-    public function show(Request $request, Response $response): Response {
+    public function show(Request $request, Response $response): Response
+    {
         if (!isset($_SESSION['user'])) {
             return $response->withHeader('Location', BASE_URL . '/admin/login')->withStatus(302);
         }
 
         $params = $request->getQueryParams();
-        
+
         // Default to last 30 days
         $endDateStr = date('Y-m-d');
         $startDateStr = date('Y-m-d', strtotime('-30 days'));
@@ -74,12 +77,44 @@ class ReportsController {
         $stmtFunctions->execute([$dbStartDate, $dbEndDate]);
         $functionLogs = $stmtFunctions->fetchAll();
 
+        // Totals Calculation
+        $totalSessions = 0;
+        foreach ($dailySessions as $ds) {
+            $totalSessions += (int) $ds['session_count'];
+        }
+
+        $stmtTotalMessages = $db->prepare("SELECT SUM(message_count) as total_messages FROM chat_sessions WHERE created_at BETWEEN ? AND ?");
+        $stmtTotalMessages->execute([$dbStartDate, $dbEndDate]);
+        $totalMessagesRow = $stmtTotalMessages->fetch();
+        $totalMessages = (int) ($totalMessagesRow['total_messages'] ?? 0);
+        $avgMessages = $totalSessions > 0 ? round($totalMessages / $totalSessions, 2) : 0;
+
+        // Get all function call id (DB + built-in)
+        $stmtAllFuncs = $db->query("SELECT call_id FROM agent_functions");
+        $allFuncs = $stmtAllFuncs->fetchAll(\PDO::FETCH_COLUMN);
+
+        $allFuncNames = array_unique(array_merge(['save_customer_info', 'contact_human'], $allFuncs));
+
+        $totalFunctionLogs = [];
+        foreach ($allFuncNames as $fnName) {
+            $totalFunctionLogs[$fnName] = 0;
+        }
+
+        foreach ($functionLogs as $fl) {
+            $fn = $fl['function_name'];
+            $totalFunctionLogs[$fn] = ($totalFunctionLogs[$fn] ?? 0) + (int) $fl['call_count'];
+        }
+
         return $this->render($response, 'reports', [
             'startDate' => $startDate,
             'endDate' => $endDate,
             'dailySessions' => $dailySessions,
             'dailyMessages' => $dailyMessages,
-            'functionLogs' => $functionLogs
+            'functionLogs' => $functionLogs,
+            'totalSessions' => $totalSessions,
+            'avgMessages' => $avgMessages,
+            'totalFunctionLogs' => $totalFunctionLogs,
+            'allFuncNames' => $allFuncNames
         ]);
     }
 }

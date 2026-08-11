@@ -20,6 +20,15 @@ class ChatController
         $messagesJson = $data['messages'] ?? '[]';
         $messages = is_string($messagesJson) ? json_decode($messagesJson, true) : $messagesJson;
         $sessionId = $data['session_id'] ?? '';
+        $image = $data['image'] ?? '';
+        
+        $mimeType = 'image/jpeg';
+        if (!empty($image)) {
+            if (preg_match('/^data:(image\/[a-z]+);base64,(.+)$/i', $image, $matches)) {
+                $mimeType = $matches[1];
+                $image = $matches[2];
+            }
+        }
 
         $isVoiceMode = isset($uploadedFiles['audio']);
         $lastMessage = '';
@@ -47,8 +56,12 @@ class ChatController
             $intent = $llm->getSearchIntent($lastMessage);
 
             // Step 2: Vectorize intent
-            $vector = $llm->embed($intent);
-            $sparseVector = $llm->generateSparseVector($intent);
+            if (!empty($image)) {
+                $vector = $llm->embed($intent, $image, $mimeType);
+            } else {
+                $vector = $llm->embed($intent);
+            }
+            $sparseVector = !empty($intent) ? $llm->generateSparseVector($intent) : [];
 
             // Step 3: Retrieve context
             $results = $vectorService->search($vector, $sparseVector, 5);
@@ -101,24 +114,63 @@ class ChatController
             }
 
             if ($isVoiceMode) {
-                $replyData = $llm->chatWithAudioOut($systemPrompt, $messages, true, $sessionId);
-                $replyText = $replyData['text'];
-                $audioBase64 = $replyData['audioBase64'];
-                $executeJs = $replyData['execute_js'] ?? null;
-                $executeArgs = $replyData['execute_args'] ?? null;
-            } else {
-                $replyData = $llm->chat($systemPrompt, $messages, true, $sessionId);
-                $replyText = $replyData['text'];
-                $audioBase64 = null;
-                $executeJs = $replyData['execute_js'] ?? null;
-                $executeArgs = $replyData['execute_args'] ?? null;
+                $systemPrompt .= "\n\nCRITICAL INSTRUCTION FOR VOICE MODE: Evaluate if the user's input seems to be just background noise or lyrics (like a TV or music playing in the background). If you suspect it's not a real human asking a question, you must still respond normally, but you MUST include the exact string [FAKE_USER_DETECTED] at the very end of your response.";
+            }
+
+            if (!empty($image)) {
+                $messages[count($messages) - 1]['image'] = $image;
+                $messages[count($messages) - 1]['mimeType'] = $mimeType;
+            }
+
+            $replyData = $llm->chat($systemPrompt, $messages, true, $sessionId);
+            $replyText = $replyData['text'] ?? '';
+            $executeJs = $replyData['execute_js'] ?? null;
+            $executeArgs = $replyData['execute_args'] ?? null;
+            
+            $isFake = false;
+            if (strpos($replyText, '[FAKE_USER_DETECTED]') !== false) {
+                $isFake = true;
+                $replyText = trim(str_replace('[FAKE_USER_DETECTED]', '', $replyText));
+            }
+
+            $abortVoice = false;
+            $logService = new \App\Services\ChatLogService();
+            if ($isVoiceMode && !empty($sessionId)) {
+                $history = $logService->getHistory($sessionId);
+                $recentHistory = array_slice($history, -20); // 10 turns = 20 messages (user + bot)
+                
+                $fakeCount = 0;
+                foreach ($recentHistory as $msg) {
+                    if (isset($msg['is_fake']) && $msg['is_fake']) {
+                        $fakeCount++;
+                    }
+                }
+                
+                if ($isFake) {
+                    $fakeCount++;
+                }
+                
+                if ($fakeCount == 3 && $isFake) {
+                    $replyText .= " It seems there's a lot of background noise. Please ensure you are in a quiet environment.";
+                } elseif ($fakeCount >= 4) {
+                    $abortVoice = true;
+                }
+            }
+            
+            $audioBase64 = null;
+            if ($isVoiceMode) {
+                // Generate audio after appending any warnings
+                $audioBase64 = $llm->generateAudioBase64($replyText);
             }
 
             if (!empty($sessionId)) {
-                $logService = new \App\Services\ChatLogService();
+                $botMsg = ['type' => 'bot', 'text' => $replyText];
+                if ($isFake) {
+                    $botMsg['is_fake'] = true;
+                }
                 $logService->appendMessages($sessionId, [
                     ['type' => 'user', 'text' => $lastMessage],
-                    ['type' => 'bot', 'text' => $replyText]
+                    $botMsg
                 ]);
             }
 
@@ -129,6 +181,10 @@ class ChatController
 
             if ($audioBase64) {
                 $responsePayload['audio'] = $audioBase64;
+            }
+
+            if ($abortVoice) {
+                $responsePayload['abort_voice'] = true;
             }
 
             if ($executeJs) {
