@@ -144,7 +144,7 @@ export default function App() {
         ctx.drawImage(img, 0, 0, width, height);
 
         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-        setUploadedImage({ file, dataUrl, compressedBase64 });
+        handleSend({ file, dataUrl, compressedBase64 });
       };
       img.src = dataUrl;
     };
@@ -186,21 +186,31 @@ export default function App() {
     return response;
   };
 
-  const handleSend = async () => {
-    if ((!input.trim() && !uploadedImage) || isLoading) return;
+  const handleSend = async (directImage = null) => {
+    let imgObj = null;
+    if (directImage && !directImage.type && directImage.dataUrl) {
+      imgObj = directImage;
+    } else {
+      imgObj = uploadedImage;
+    }
 
-    const userText = input.trim();
+    if ((!input.trim() && !imgObj) || isLoading) return;
+
+    const userText = imgObj ? '' : input.trim();
     let htmlContent = userText;
-    if (uploadedImage) {
-      htmlContent = `<div style="margin-bottom: 8px;"><img src="${uploadedImage.dataUrl}" style="max-width: 150px; border-radius: 4px;"/></div>` + htmlContent;
+    if (imgObj) {
+      htmlContent = `<div style="margin-bottom: 8px;"><img src="${imgObj.dataUrl}" style="max-width: 150px; border-radius: 4px;"/></div>` + htmlContent;
     }
 
     const userMessage = { id: Date.now(), type: 'user', text: userText, html: htmlContent };
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    const imageToSend = uploadedImage ? uploadedImage.compressedBase64 : null;
-    const dataUrlToRender = uploadedImage ? uploadedImage.dataUrl : null;
-    setUploadedImage(null);
+    
+    if (!imgObj) {
+      setInput('');
+    }
+    const imageToSend = imgObj ? imgObj.compressedBase64 : null;
+    const dataUrlToRender = imgObj ? imgObj.dataUrl : null;
+    if (uploadedImage) setUploadedImage(null);
     setIsLoading(true);
 
     try {
@@ -725,16 +735,7 @@ export default function App() {
 
           <div className="glint-chatbot-input-area">
             <div className="glint-text-chat-input" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-              {uploadedImage && (
-                <div className="glint-image-preview-container" style={{ position: 'relative', width: 'fit-content' }}>
-                  <img src={uploadedImage.dataUrl} alt="Preview" style={{ height: '60px', borderRadius: '4px', border: '1px solid #ccc' }} />
-                  <button
-                    onClick={() => setUploadedImage(null)}
-                    style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    &times;
-                  </button>
-                </div>
-              )}
+
               <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleFileSelect} />
               {activeTab === 'text' ? (
                 <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '8px' }}>
@@ -742,7 +743,7 @@ export default function App() {
                     className="glint-chatbot-attach"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
-                    title="Upload Image"
+                    title="Find tiles in photo"
                   >
                     {config.upload_icon_html ? (
                       <span dangerouslySetInnerHTML={{ __html: config.upload_icon_html }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px' }} />
@@ -777,7 +778,7 @@ export default function App() {
                     className="glint-chatbot-attach"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
-                    title="Upload Image"
+                    title="Find tiles in photo"
                   >
                     {config.upload_icon_html ? (
                       <span dangerouslySetInnerHTML={{ __html: config.upload_icon_html }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px' }} />
