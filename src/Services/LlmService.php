@@ -69,30 +69,31 @@ class LlmService
         // Remove punctuation
         $text = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $text);
         $words = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
-        
+
         $frequencies = array_count_values($words);
-        
+
         $indices = [];
         $values = [];
-        
+
         foreach ($frequencies as $word => $count) {
             // Hashing trick to map words to a fixed size vocabulary (e.g., 1 million)
             $index = crc32($word) % 1000000;
-            if ($index < 0) $index += 1000000;
-            
+            if ($index < 0)
+                $index += 1000000;
+
             // Handle hash collisions simply by adding counts (simple term frequency)
             $pos = array_search($index, $indices);
             if ($pos !== false) {
                 $values[$pos] += $count;
             } else {
                 $indices[] = $index;
-                $values[] = (float)$count; // Simple TF
+                $values[] = (float) $count; // Simple TF
             }
         }
-        
+
         // Qdrant requires indices to be sorted
         array_multisort($indices, SORT_ASC, $values);
-        
+
         return [
             'indices' => $indices,
             'values' => $values
@@ -102,11 +103,13 @@ class LlmService
     public function detectObjectsInImage(string $imageBase64, string $mimeType): array
     {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
-        if (empty($apiKey)) throw new \Exception("Gemini API Key is not set.");
+        if (empty($apiKey))
+            throw new \Exception("Gemini API Key is not set.");
 
         $client = new Client();
         $modelName = $this->settings['vision_model_name'] ?? 'gemini-2.5-pro';
-        if (empty($modelName)) $modelName = 'gemini-2.5-pro';
+        if (empty($modelName))
+            $modelName = 'gemini-2.5-pro';
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}";
 
         $prompt = "Detect the main tiles (e.g., wall tiles, floor tiles, ceramic tiles, mosaic tiles) in this image that a user might want to search for in a tile e-commerce store. ONLY detect tiles; ignore people, furniture, plants, or other irrelevant objects. Return the result strictly as a JSON array of objects, where each object has a 'tag' (string) describing the tile, and a 'box' array [ymin, xmin, ymax, xmax] representing the relative bounding box coordinates (values between 0 and 1000, consistent with Gemini 2D spatial coordinates). For example: [{\"tag\": \"blue mosaic tile\", \"box\": [100, 200, 900, 800]}]. If you cannot detect any distinct tiles, return an empty array []. Do not include any other text or markdown formatting outside the JSON array.";
@@ -139,12 +142,12 @@ class LlmService
         if (!empty($data['candidates'][0]['content']['parts'][0]['text'])) {
             $text = $data['candidates'][0]['content']['parts'][0]['text'];
         }
-        
+
         // Clean markdown if present
         $text = preg_replace('/```json\s*/', '', $text);
         $text = preg_replace('/```\s*/', '', $text);
         $text = trim($text);
-        
+
         $decoded = json_decode($text, true);
         return is_array($decoded) ? $decoded : [];
     }
@@ -198,18 +201,18 @@ class LlmService
         return $firstCandidate['content']['parts'][0]['text'] ?? "";
     }
 
-    public function chat(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null)
+    public function chat(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null, int $recursionDepth = 0)
     {
         $provider = $this->settings['llm_provider'] ?? 'gemini';
 
         if ($provider === 'groq') {
-            return $this->chatGroq($systemPrompt, $messages, $allowTools, $sessionId);
+            return $this->chatGroq($systemPrompt, $messages, $allowTools, $sessionId, $recursionDepth);
         } else {
-            return $this->chatGemini($systemPrompt, $messages, $allowTools, $sessionId);
+            return $this->chatGemini($systemPrompt, $messages, $allowTools, $sessionId, $recursionDepth);
         }
     }
 
-    private function chatGemini(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null)
+    private function chatGemini(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null, int $recursionDepth = 0)
     {
         $apiKey = $this->settings['gemini_api_key'] ?? '';
         if (empty($apiKey))
@@ -267,7 +270,7 @@ class LlmService
                     ]
                 ];
             }
-            if ($sessionId !== null) {
+            if ($sessionId !== null && $recursionDepth === 0) {
                 $functionDeclarations[] = [
                     'name' => 'save_customer_info',
                     'description' => 'Save the customer\'s email address and/or physical address into the database when they provide it.',
@@ -296,7 +299,10 @@ class LlmService
             };
 
             foreach ($agentFunctions as $fn) {
-                $agentFunctionsMap[$fn['call_id']] = $fn['js_code'];
+                $agentFunctionsMap[$fn['call_id']] = [
+                    'js_code' => $fn['js_code'],
+                    'hidden_context_template' => $fn['hidden_context_template'] ?? ''
+                ];
                 $decl = [
                     'name' => $fn['call_id'],
                     'description' => $fn['description']
@@ -315,10 +321,25 @@ class LlmService
             }
         }
 
-        $response = $client->post($url, [
-            'json' => $payload,
-            'headers' => ['Content-Type' => 'application/json']
-        ]);
+        $maxRetries = 5;
+        $attempt = 0;
+        $response = null;
+
+        while ($attempt < $maxRetries) {
+            try {
+                $response = $client->post($url, [
+                    'json' => $payload,
+                    'headers' => ['Content-Type' => 'application/json']
+                ]);
+                break;
+            } catch (\Exception $e) {
+                $attempt++;
+                if ($attempt >= $maxRetries) {
+                    return ['text' => "Server is busy, please try later.", 'execute_js' => null];
+                }
+                sleep(1);
+            }
+        }
 
         $data = json_decode($response->getBody()->getContents(), true);
         $firstCandidate = $data['candidates'][0] ?? null;
@@ -328,6 +349,7 @@ class LlmService
         $text = "";
         $executeJs = null;
         $executeArgs = [];
+        $hiddenContext = null;
 
         $parts = $firstCandidate['content']['parts'] ?? [];
         foreach ($parts as $part) {
@@ -337,7 +359,7 @@ class LlmService
             if (isset($part['functionCall'])) {
                 $fnName = $part['functionCall']['name'];
                 $args = $part['functionCall']['args'] ?? [];
-                
+
                 if ($sessionId) {
                     $this->logFunctionCall($sessionId, $fnName);
                 }
@@ -371,22 +393,34 @@ class LlmService
                         $stmt = $db->prepare($sql);
                         $stmt->execute($params);
                     }
-                    $text = "Got it! How can I help you now?";
+                    $messages[] = ['role' => 'user', 'content' => "SYSTEM (Hidden to user): The customer info was successfully saved into the database. Now proceed with their original request (e.g., escalating to human if requested)."];
+                    if ($recursionDepth < 1) {
+                        return $this->chat($systemPrompt, $messages, $allowTools, $sessionId, $recursionDepth + 1);
+                    }
+                    $text = "Got it! Is there anything else I can help you?";
                 } elseif (isset($agentFunctionsMap[$fnName])) {
-                    $executeJs = $agentFunctionsMap[$fnName];
+                    $executeJs = $agentFunctionsMap[$fnName]['js_code'];
                     $executeArgs = $args;
                     if (empty($text)) {
                         $text = "Processing request...";
+                    }
+                    $template = $agentFunctionsMap[$fnName]['hidden_context_template'];
+                    if (!empty($template)) {
+                        $hiddenContext = $template;
+                        foreach ($args as $k => $v) {
+                            $valStr = is_array($v) ? implode(", ", $v) : (string) $v;
+                            $hiddenContext = str_replace("{{" . $k . "}}", $valStr, $hiddenContext);
+                        }
                     }
                 }
             }
         }
 
         if (empty($text) && !$executeJs) {
-            $text = "No response text.";
+            $text = "Sorry, I'm having trouble processing your question. Could you describe it more clearly?";
         }
 
-        return ['text' => $text, 'execute_js' => $executeJs, 'execute_args' => $executeArgs];
+        return ['text' => $text, 'execute_js' => $executeJs, 'execute_args' => $executeArgs, 'hidden_context' => $hiddenContext];
     }
 
     public function chatWithAudioOut(string $systemPrompt, array $messages, bool $allowTools = false, ?string $sessionId = null)
@@ -396,14 +430,15 @@ class LlmService
         $text = $replyData['text'] ?? '';
         $executeJs = $replyData['execute_js'] ?? null;
         $executeArgs = $replyData['execute_args'] ?? null;
-        
+
         $audioBase64 = $this->generateAudioBase64($text);
 
         return [
             'text' => $text,
             'audioBase64' => $audioBase64,
             'execute_js' => $executeJs,
-            'execute_args' => $executeArgs
+            'execute_args' => $executeArgs,
+            'hidden_context' => $replyData['hidden_context'] ?? null
         ];
     }
 
@@ -412,7 +447,7 @@ class LlmService
         $audioBase64 = null;
         $apiKey = $this->settings['gemini_api_key'] ?? '';
         $ttsModelName = $this->settings['tts_model_name'] ?? 'gemini-2.5-flash-preview-tts';
-        
+
         if (!empty($apiKey) && !empty($text) && $text !== 'Processing request...' && $text !== 'No response text.') {
             try {
                 $client = new Client();
@@ -431,7 +466,7 @@ class LlmService
                 if (isset($data['candidates'][0]['content']['parts'][0]['inlineData']['data'])) {
                     $rawBase64 = $data['candidates'][0]['content']['parts'][0]['inlineData']['data'];
                     $pcmData = base64_decode($rawBase64);
-                    
+
                     // Gemini TTS returns raw 24kHz 16-bit mono PCM. We must add a 44-byte WAV header.
                     $sampleRate = 24000;
                     $channels = 1;
@@ -441,10 +476,21 @@ class LlmService
                     $byteRate = $sampleRate * $channels * ($bitsPerSample / 8);
                     $blockAlign = $channels * ($bitsPerSample / 8);
 
-                    $header = pack('a4V a4a4V v v V V v v a4V', 
-                        'RIFF', $fileLength, 'WAVE', 'fmt ', 16, 
-                        1, $channels, $sampleRate, $byteRate, 
-                        $blockAlign, $bitsPerSample, 'data', $dataLength
+                    $header = pack(
+                        'a4V a4a4V v v V V v v a4V',
+                        'RIFF',
+                        $fileLength,
+                        'WAVE',
+                        'fmt ',
+                        16,
+                        1,
+                        $channels,
+                        $sampleRate,
+                        $byteRate,
+                        $blockAlign,
+                        $bitsPerSample,
+                        'data',
+                        $dataLength
                     );
                     $wavData = $header . $pcmData;
                     $audioBase64 = base64_encode($wavData);
@@ -456,7 +502,7 @@ class LlmService
         return $audioBase64;
     }
 
-    private function chatGroq(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null)
+    private function chatGroq(string $systemPrompt, array $messages, bool $allowTools, ?string $sessionId = null, int $recursionDepth = 0)
     {
         $apiKey = $this->settings['groq_api_key'] ?? '';
         if (empty($apiKey))
@@ -506,7 +552,7 @@ class LlmService
                     ]
                 ];
             }
-            if ($sessionId !== null) {
+            if ($sessionId !== null && $recursionDepth === 0) {
                 $tools[] = [
                     'type' => 'function',
                     'function' => [
@@ -525,7 +571,10 @@ class LlmService
             }
 
             foreach ($agentFunctions as $fn) {
-                $agentFunctionsMap[$fn['call_id']] = $fn['js_code'];
+                $agentFunctionsMap[$fn['call_id']] = [
+                    'js_code' => $fn['js_code'],
+                    'hidden_context_template' => $fn['hidden_context_template'] ?? ''
+                ];
                 $decl = [
                     'name' => $fn['call_id'],
                     'description' => $fn['description']
@@ -548,13 +597,28 @@ class LlmService
             }
         }
 
-        $response = $client->post($url, [
-            'json' => $payload,
-            'headers' => [
-                'Authorization' => "Bearer {$apiKey}",
-                'Content-Type' => 'application/json'
-            ]
-        ]);
+        $maxRetries = 5;
+        $attempt = 0;
+        $response = null;
+
+        while ($attempt < $maxRetries) {
+            try {
+                $response = $client->post($url, [
+                    'json' => $payload,
+                    'headers' => [
+                        'Authorization' => "Bearer {$apiKey}",
+                        'Content-Type' => 'application/json'
+                    ]
+                ]);
+                break;
+            } catch (\Exception $e) {
+                $attempt++;
+                if ($attempt >= $maxRetries) {
+                    return ['text' => "Server is busy, please try later.", 'execute_js' => null];
+                }
+                sleep(1);
+            }
+        }
 
         $data = json_decode($response->getBody()->getContents(), true);
         $firstChoice = $data['choices'][0] ?? null;
@@ -565,13 +629,14 @@ class LlmService
         $text = $message['content'] ?? "No response text.";
         $executeJs = null;
         $executeArgs = [];
+        $hiddenContext = null;
 
         if (isset($message['tool_calls'])) {
             $toolCall = $message['tool_calls'][0] ?? null;
             if ($toolCall) {
                 $fnName = $toolCall['function']['name'];
                 $args = json_decode($toolCall['function']['arguments'], true) ?? [];
-                
+
                 if ($sessionId) {
                     $this->logFunctionCall($sessionId, $fnName);
                 }
@@ -605,16 +670,26 @@ class LlmService
                         $stmt = $db->prepare($sql);
                         $stmt->execute($params);
                     }
-                    $text = "Got it! How can I help you now?";
+                    $messages[] = ['role' => 'user', 'content' => "SYSTEM (Hidden to user): The customer info was successfully saved into the database. Now proceed with their original request (e.g., escalating to human if requested)."];
+                    return $this->chat($systemPrompt, $messages, $allowTools, $sessionId);
                 } elseif (isset($agentFunctionsMap[$fnName])) {
-                    $executeJs = $agentFunctionsMap[$fnName];
+                    $executeJs = $agentFunctionsMap[$fnName]['js_code'];
                     $executeArgs = $args;
                     $text = "Processing request...";
+
+                    $template = $agentFunctionsMap[$fnName]['hidden_context_template'];
+                    if (!empty($template)) {
+                        $hiddenContext = $template;
+                        foreach ($args as $k => $v) {
+                            $valStr = is_array($v) ? implode(", ", $v) : (string) $v;
+                            $hiddenContext = str_replace("{{" . $k . "}}", $valStr, $hiddenContext);
+                        }
+                    }
                 }
             }
         }
 
-        return ['text' => $text, 'execute_js' => $executeJs, 'execute_args' => $executeArgs];
+        return ['text' => $text, 'execute_js' => $executeJs, 'execute_args' => $executeArgs, 'hidden_context' => $hiddenContext];
     }
 
     private function logFunctionCall(string $sessionId, string $functionName)

@@ -107,6 +107,15 @@
                 </p>
             </div>
 
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Hidden Context Template (Optional)</label>
+                <textarea id="fn_hidden_context_template"
+                    class="w-full border rounded px-3 py-2 h-24 text-sm bg-gray-50"
+                    placeholder="Action Taken: I have successfully displayed the product cards for these Product IDs: {{product_ids}} on the user's screen."></textarea>
+                <p class="text-xs text-gray-500 mt-1">Use {{parameter_name}} to inject parameters provided by the LLM. This text is sent back to the LLM to give it memory of what it did.
+                </p>
+            </div>
+
             <div class="mb-6">
                 <label class="block text-sm font-medium text-gray-700 mb-1">JavaScript Execution Code</label>
                 <textarea id="fn_js_code" required
@@ -145,6 +154,7 @@
         document.getElementById('fn_call_id').value = fn.call_id;
         document.getElementById('fn_description').value = fn.description;
         document.getElementById('fn_parameters_schema').value = fn.parameters_schema || '';
+        document.getElementById('fn_hidden_context_template').value = fn.hidden_context_template || '';
         document.getElementById('fn_js_code').value = fn.js_code;
 
         document.getElementById('modalTitle').innerText = 'Edit Agent Function';
@@ -165,6 +175,7 @@
             call_id: document.getElementById('fn_call_id').value,
             description: document.getElementById('fn_description').value,
             parameters_schema: document.getElementById('fn_parameters_schema').value,
+            hidden_context_template: document.getElementById('fn_hidden_context_template').value,
             js_code: document.getElementById('fn_js_code').value
         };
 

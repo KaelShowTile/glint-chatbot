@@ -227,7 +227,7 @@ export default function App() {
       const chatHistory = messages
         .filter(m => m.type !== 'system' && m.type !== 'bot_custom' && !!m.text)
         .map(m => ({
-          role: m.type === 'bot' ? 'assistant' : 'user',
+          role: (m.type === 'bot' || m.type === 'bot_hidden') ? 'assistant' : 'user',
           content: m.text
         }));
 
@@ -290,6 +290,10 @@ export default function App() {
                     const res = await performVisualSearch(apiUrl, chatHistory, userMessage, imageToSend, selectedBox);
                     const data = await res.json();
                     setMessages(prev => [...prev, { id: Date.now() + 2, type: 'bot', text: data.reply }]);
+                    
+                    if (data.hidden_context) {
+                        setMessages(prev => [...prev, { id: Date.now() + 3, type: 'bot_hidden', text: data.hidden_context }]);
+                    }
 
                     if (data.execute_js) {
                       try {
@@ -351,6 +355,10 @@ export default function App() {
 
       const botMessage = { id: Date.now() + 1, type: 'bot', text: data.reply };
       setMessages(prev => [...prev, botMessage]);
+
+      if (data.hidden_context) {
+          setMessages(prev => [...prev, { id: Date.now() + 2, type: 'bot_hidden', text: data.hidden_context }]);
+      }
 
       if (data.execute_js) {
         try {
@@ -504,6 +512,10 @@ export default function App() {
 
       const botMessage = { id: Date.now() + 1, type: 'bot', text: data.reply };
       setMessages(prev => [...prev, botMessage]);
+
+      if (data.hidden_context) {
+          setMessages(prev => [...prev, { id: Date.now() + 1.5, type: 'bot_hidden', text: data.hidden_context }]);
+      }
 
       if (data.abort_voice) {
         stopConversation();
@@ -661,7 +673,7 @@ export default function App() {
           </div>
 
           <div className="glint-chatbot-messages">
-            {messages.map(msg => (
+            {messages.filter(msg => msg.type !== 'bot_hidden').map(msg => (
               <div key={msg.id} className={`glint-message-wrapper ${msg.type}`}>
                 {msg.type === 'bot' && (
                   <div className="glint-bot-profile">

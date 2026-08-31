@@ -66,6 +66,7 @@ class Database {
                 description TEXT NOT NULL,
                 js_code TEXT NOT NULL,
                 parameters_schema TEXT,
+                hidden_context_template TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -88,6 +89,13 @@ class Database {
         } catch (\PDOException $e) {
             // Column might already exist
         }
+
+        try {
+            $pdo->exec("ALTER TABLE agent_functions ADD COLUMN hidden_context_template TEXT");
+        } catch (\PDOException $e) {
+            // Column might already exist
+        }
+
         try {
             $pdo->exec("ALTER TABLE chat_sessions ADD COLUMN customer_email TEXT");
         } catch (\PDOException $e) {

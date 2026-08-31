@@ -42,6 +42,7 @@ class AgentFunctionController
         $description = trim($data['description'] ?? '');
         $js_code = trim($data['js_code'] ?? '');
         $parameters_schema = trim($data['parameters_schema'] ?? '');
+        $hidden_context_template = trim($data['hidden_context_template'] ?? '');
 
         if (empty($name) || empty($call_id) || empty($description) || empty($js_code)) {
             $response->getBody()->write(json_encode(['error' => 'All fields are required']));
@@ -59,11 +60,11 @@ class AgentFunctionController
         try {
             $db = Database::getConnection();
             if ($id > 0) {
-                $stmt = $db->prepare("UPDATE agent_functions SET name = ?, call_id = ?, description = ?, js_code = ?, parameters_schema = ? WHERE id = ?");
-                $stmt->execute([$name, $call_id, $description, $js_code, $parameters_schema, $id]);
+                $stmt = $db->prepare("UPDATE agent_functions SET name = ?, call_id = ?, description = ?, js_code = ?, parameters_schema = ?, hidden_context_template = ? WHERE id = ?");
+                $stmt->execute([$name, $call_id, $description, $js_code, $parameters_schema, $hidden_context_template, $id]);
             } else {
-                $stmt = $db->prepare("INSERT INTO agent_functions (name, call_id, description, js_code, parameters_schema) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$name, $call_id, $description, $js_code, $parameters_schema]);
+                $stmt = $db->prepare("INSERT INTO agent_functions (name, call_id, description, js_code, parameters_schema, hidden_context_template) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$name, $call_id, $description, $js_code, $parameters_schema, $hidden_context_template]);
             }
 
             $response->getBody()->write(json_encode(['success' => true]));

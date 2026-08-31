@@ -113,6 +113,8 @@ class ChatController
                 }
             }
 
+            error_log("Generated System Prompt: " . $systemPrompt);
+
             if ($isVoiceMode) {
                 $systemPrompt .= "\n\nCRITICAL INSTRUCTION FOR VOICE MODE: Evaluate if the user's input seems to be just background noise or lyrics (like a TV or music playing in the background). If you suspect it's not a real human asking a question, you must still respond normally, but you MUST include the exact string [FAKE_USER_DETECTED] at the very end of your response.";
             }
@@ -126,6 +128,7 @@ class ChatController
             $replyText = $replyData['text'] ?? '';
             $executeJs = $replyData['execute_js'] ?? null;
             $executeArgs = $replyData['execute_args'] ?? null;
+            $hiddenContext = $replyData['hidden_context'] ?? null;
             
             $isFake = false;
             if (strpos($replyText, '[FAKE_USER_DETECTED]') !== false) {
@@ -168,10 +171,14 @@ class ChatController
                 if ($isFake) {
                     $botMsg['is_fake'] = true;
                 }
-                $logService->appendMessages($sessionId, [
+                $newMsgs = [
                     ['type' => 'user', 'text' => $lastMessage],
                     $botMsg
-                ]);
+                ];
+                if ($hiddenContext) {
+                    $newMsgs[] = ['type' => 'bot_hidden', 'text' => $hiddenContext];
+                }
+                $logService->appendMessages($sessionId, $newMsgs);
             }
 
             $responsePayload = [
@@ -192,6 +199,10 @@ class ChatController
                 if ($executeArgs !== null) {
                     $responsePayload['execute_args'] = $executeArgs;
                 }
+            }
+
+            if ($hiddenContext) {
+                $responsePayload['hidden_context'] = $hiddenContext;
             }
 
             $response->getBody()->write(json_encode($responsePayload));

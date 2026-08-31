@@ -161,9 +161,11 @@ class VectorService {
             }
             
             $data = json_decode($response->getBody()->getContents(), true);
-            // The query API returns results in 'points', not 'result' if we use /points/search, wait.
-            // For POST /points/query, it returns {"result": [ { "id":..., "score":..., "payload":... } ] }
-            return $data['result'] ?? [];
+            $result = $data['result'] ?? [];
+            if (isset($result['points'])) {
+                return $result['points'];
+            }
+            return $result;
         } catch (\Exception $e) {
             error_log("Qdrant Search Error: " . $e->getMessage());
             return [];
